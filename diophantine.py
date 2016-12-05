@@ -199,8 +199,8 @@ def reduce_matrix(A, B, L, k, i, D):
         col1 = nonzero_i_elems[0]
         if A[i, col1] < 0:
             minus(i, L)
-            A[i, :] *= -1.0
-            B[i, :] *= -1.0
+            A[i, :] *= -1
+            B[i, :] *= -1
     else:
         col1 = A.shape[1]
     nonzero_k_elems = numpy.nonzero(A[k])[0]
