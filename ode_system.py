@@ -21,6 +21,13 @@ class ODESystem(object):
         assert len(self._variables) == len(self._derivatives)
         assert self.derivatives[self.variables.index(self.indep_var)] == sympy.sympify(1)
 
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        return ((self._variables == other.variables) and
+                (self._derivatives == other._derivatives) and
+                (self._indep_var == other._indep_var))
+
     @property
     def indep_var(self):
         return self._indep_var
