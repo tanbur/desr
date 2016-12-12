@@ -182,7 +182,6 @@ def normal_hnf_col(matrix_):
     h, v = out[:r], out[r:]
     from numpy.testing import assert_array_equal
     assert_array_equal(numpy.dot(matrix_, v), h)
-    print 'is normal hh:', is_normal_hermite_multiplier(hermite_multiplier=v, matrix_=matrix_)
     return h, v
 
 ## Set defaults
