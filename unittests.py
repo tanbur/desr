@@ -33,7 +33,7 @@ class TestHermiteMethods(TestCase):
         # H, V = hnf_row_lll(A)
         # assert_array_equal(H, numpy.array([[0, -1]], dtype=INT_TYPE_DEF))
         # assert_array_equal(H, numpy.dot(V, A))
-        # #self.assertTrue(is_hnf(H))
+        # self.assertTrue(is_hnf_row(H))
 
     def test_example1(self):
         ''' Example from Extended gcd and Hermite nomal form via lattice basis reduction '''
@@ -189,16 +189,28 @@ class TestODESystemScaling(TestCase):
         equations = '''dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'''.split(';')
 
         system = ODESystem.from_equations(equations)
+
+
+        ## Check against the answer in the paper
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(numpy.all(- max_scal == numpy.array([[1, -1, 0]])))
+        self.assertTrue(numpy.all(- max_scal == numpy.array([[0, 1, -1]])))
 
-        translation = ODETranslation(max_scal)
+        # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
+        hermite_multiplier_example = numpy.array([[0, 1, 0],
+                                                  [1, 0, 1],
+                                                  [0, 0, 1]])
+
+        translation = ODETranslation(-max_scal, hermite_multiplier=hermite_multiplier_example)
 
         translated = translation.translate_dep_var(system)
+        self.assertEqual(str(translated), 'dt/dt = 1\ndx0/dt = x0*(y0 + 1)\ndy0/dt = y0*(1 + 1/t)')
 
-        self.assertEqual(str(translated), 'dy0/dt = y0*(1 + 1/t)\ndt/dt = 1\ndx0/dt = x0*(-y0 + 1/t)')
+        ## Check our answer hasn't changed
+        translation = ODETranslation.from_ode_system(system)
+        translated = translation.translate_dep_var(system)
+        self.assertEqual(str(translated), 'dt/dt = 1\ndx0/dt = x0*(-y0 + 1/t)\ndy0/dt = y0*(1 + 1/t)')
 
 if __name__ == '__main__':
     main()

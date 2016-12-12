@@ -17,7 +17,7 @@ class ODESystem(object):
 
         self._indep_var = sympy.var('t') if indep_var is None else indep_var
 
-        assert self._indep_var in self._variables
+        assert self._indep_var == self._variables[0]
         assert len(self._variables) == len(self._derivatives)
         assert self.derivatives[self.variables.index(self.indep_var)] == sympy.sympify(1)
 
@@ -49,7 +49,7 @@ class ODESystem(object):
         equations = dict(map(parse_de, equations))
 
         # Order variables as dependent, time, parameters
-        variables = sorted(equations.keys(), key=str) + [indep_var] + sorted(expressions_to_variables(equations.values()), key=str)
+        variables = [indep_var] + sorted(equations.keys(), key=str) + sorted(expressions_to_variables(equations.values()), key=str)
         variables = unique_array_stable(variables)
 
         assert equations.get(indep_var) is None
