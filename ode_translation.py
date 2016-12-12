@@ -110,7 +110,7 @@ class ODETranslation(object):
         to_sub = dict(zip(system.variables[1:], scale_action(invariant_variables, reduced_scaling.inv_herm_mult_d)))
         system_derivatives = system.derivatives
         # fywd = F(y^(W_d)) in Hubert Labahn
-        fywd = numpy.array([(f / v).subs(to_sub, simultaneous=True).expand().simplify() for v, f in
+        fywd = numpy.array([(f / v).subs(to_sub, simultaneous=True).expand() for v, f in
                             zip(system.variables, system_derivatives)])[1:]
         dydt = invariant_variables * numpy.dot(fywd, reduced_scaling.herm_mult_n)
         dxdt = auxiliary_variables * numpy.dot(fywd, reduced_scaling.herm_mult_i)
@@ -144,7 +144,7 @@ class ODETranslation(object):
         to_sub = dict(zip(system.variables, scale_action(invariant_variables, self.inv_herm_mult_d)))
         system_derivatives = system.derivatives
         # fywd = F(y^(W_d)) in Hubert Labahn
-        fywd = numpy.array([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand().simplify() for v, f in
+        fywd = numpy.array([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand() for v, f in
                             zip(system.variables, system_derivatives)])
         dydt = invariant_variables * numpy.dot(fywd, self.herm_mult_n) / system.indep_var
         dxdt = auxiliary_variables * numpy.dot(fywd, self.herm_mult_i) / system.indep_var

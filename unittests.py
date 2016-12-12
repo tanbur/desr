@@ -208,7 +208,12 @@ class TestODESystemScaling(TestCase):
         answer = ODESystem.from_equations('dx0/dt = x0*(y0 + 1)\ndy0/dt = y0*(1 + 1/t)')
         self.assertEqual(translated, answer)
 
-        ## Check our answer hasn't changed
+        ## Check our answer using the general translation
+        translated = translation.translate(system)
+        answer = ODESystem.from_equations('dx0/dt = x0*(y0*y1 + y0)/t\ndy0/dt = y0/t\ndy1/dt = y1*(y0 + 1)/t')
+        self.assertEqual(translated, answer)
+
+        ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate_dep_var(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(-y0 + 1/t)\ndy0/dt = y0*(1 + 1/t)')
@@ -242,7 +247,7 @@ class TestODESystemScaling(TestCase):
         answer = ODESystem.from_equations('dx0/dt = x0*(2*y0*y1/3 - 1/3)/t\ndy0/dt = y0*(y0*y1 - 1)/t\ndy1/dt = y1*(y1 + 1)/t')
         self.assertEqual(translated, answer)
 
-        ## Check our answer hasn't changed
+        ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(y1/3 - 2/3)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')

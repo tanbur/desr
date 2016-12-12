@@ -24,9 +24,14 @@ class ODESystem(object):
     def __eq__(self, other):
         if type(self) is not type(other):
             return False
-        return ((self._variables == other.variables) and
-                (self._derivatives == other._derivatives) and
-                (self._indep_var == other._indep_var))
+        if self._variables != other.variables:
+            return False
+        for der1, der2 in zip(self._derivatives, other._derivatives):
+            if der1.expand() != der2.expand():
+                return False
+        if self._indep_var != other._indep_var:
+            return False
+        return True
 
     @property
     def indep_var(self):
