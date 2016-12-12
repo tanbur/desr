@@ -120,6 +120,40 @@ class ODETranslation(object):
 
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
 
+    def translate(self, system):
+        ''' Given a system of ODEs, translate the system into a simplified version. General version
+        '''
+        # y = numpy.array(scale_action(system.variables, self.herm_mult_n))
+        #print 'y = ', numpy.array(scale_action(system.variables, self.herm_mult_n))
+        num_inv_var = self.herm_mult_n.shape[1]
+        invariant_variables = sympy.var(' '.join(['y{}'.format(i) for i in xrange(num_inv_var)]))
+        if num_inv_var == 1:
+            invariant_variables = [invariant_variables]
+        else:
+            invariant_variables = list(invariant_variables)
+
+        # x = numpy.array(scale_action(system.variables, self.herm_mult_i))
+        #print 'x = ', numpy.array(scale_action(system.variables, self.herm_mult_i))
+        num_aux_var = self.herm_mult_i.shape[1]
+        auxiliary_variables = sympy.var(' '.join(['x{}'.format(i) for i in xrange(num_aux_var)]))
+        if num_aux_var == 1:
+            auxiliary_variables = [auxiliary_variables]
+        else:
+            auxiliary_variables = list(auxiliary_variables)
+
+        to_sub = dict(zip(system.variables, scale_action(invariant_variables, self.inv_herm_mult_d)))
+        system_derivatives = system.derivatives
+        # fywd = F(y^(W_d)) in Hubert Labahn
+        fywd = numpy.array([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand().simplify() for v, f in
+                            zip(system.variables, system_derivatives)])
+        dydt = invariant_variables * numpy.dot(fywd, self.herm_mult_n) / system.indep_var
+        dxdt = auxiliary_variables * numpy.dot(fywd, self.herm_mult_i) / system.indep_var
+
+        new_variables = [system.indep_var] + list(auxiliary_variables) + list(invariant_variables)
+        new_derivatives = [sympy.sympify(1)] + list(dxdt) + list(dydt)
+        assert len(new_variables) == len(new_derivatives) == len(system.variables) + 1
+        return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
+
 
 def scale_action(vect, scaling_matrix):
     ''' Given a vector of sympy expressions, determine the action defined by scaling_matrix
@@ -147,58 +181,6 @@ def scale_action(vect, scaling_matrix):
             mon *= var ** power
         out.append(mon)
     return numpy.array(out)
-
-if __name__ == '__main__':
-
-    ### Example 6.4
-    import sympy
-    from ode_system import ODESystem
-
-    equations = '''dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'''.split(';')
-    #equations = '''dx/dt = x*y'''.split(';')
-
-    system = ODESystem.from_equations(equations)
-
-    # Match the maximal scaling matrix
-    max_scal = system.maximal_scaling_matrix()
-    print 'A = ', max_scal
-
-    translation = ODETranslation(max_scal)
-    translated = translation.translate_dep_var(system)
-    t = translated.derivatives[0]
-
-    #t = t.expand()
-    print translated
-
-    self = translation
-    # invariant_variables = sympy.var(' '.join(['y{}'.format(i) for i in xrange(self.herm_mult_n.shape[1])]))#numpy.array(scale_action(system.variables, self.herm_mult_n))  # y
-    # auxiliary_variables = sympy.var(' '.join(['x{}'.format(i) for i in xrange(self.herm_mult_i.shape[1])]))#numpy.array(scale_action(system.variables, self.herm_mult_i))  # x
-    #
-    # #new_variables = list(invariant_variables) + list(auxiliary_variables)
-    #
-    # # print 'x = ', invariant_variables
-    # # print 'y = ', auxiliary_variables
-    # # print self.inv_herm_mult_d
-    print 'V = ', self.herm_mult
-    # print 'V.T = ', self.herm_mult
-    # print 'W = ', self.inv_herm_mult
-    # # print scale_action(auxiliary_variables, self.inv_herm_mult_d)
-    # import sympy
-    #
-    # to_sub = dict(zip(system.variables, scale_action(invariant_variables, self.inv_herm_mult_d)))
-    # print to_sub
-    # dydt = invariant_variables * numpy.dot(numpy.array([f.subs(to_sub).expand().simplify() for f in system.derivatives]), self.herm_mult_n)
-    # dxdt = auxiliary_variables * numpy.dot(numpy.array([f.subs(to_sub).expand().simplify() for f in system.derivatives]), self.herm_mult_i)
-    # print 'x = ', numpy.array(scale_action(system.variables, self.herm_mult_i))  # x #auxiliary_variables
-    # print dxdt
-    # print 'y = ', numpy.array(scale_action(system.variables, self.herm_mult_n))  # y #invariant_variables
-    # print [e.expand().simplify() for e in dydt]
-    # dydt = numpy.dot(numpy.expand_dims(dydt, 0), self.herm_mult_n)
-    # print dydt
-    #
-    # print invariant_variables
-    # print auxiliary_variables
-
 
 # if __name__ == '__main__':
 #     import doctest

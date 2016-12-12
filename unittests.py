@@ -212,5 +212,38 @@ class TestODESystemScaling(TestCase):
         translated = translation.translate_dep_var(system)
         self.assertEqual(str(translated), 'dt/dt = 1\ndx0/dt = x0*(-y0 + 1/t)\ndy0/dt = y0*(1 + 1/t)')
 
+
+    def test_example_6_6_hub_lab(self):
+        ''' Example 6.6 from Hubert Labahn Scaling symmetries paper, where we act on time
+            dz1/dt = z1*(z1**5*z2 - 2)/(3*t)
+            dz2/dt = z2*(10 - 2*z1**5*z2 + 3*z1**2*z2/t )/(3*t)
+        '''
+        equations = '''dz1/dt = z1*(z1**5*z2 - 2)/(3*t);dz2/dt = z2*(10 - 2*z1**5*z2 + 3*z1**2*z2/t )/(3*t)'''.split(';')
+
+        system = ODESystem.from_equations(equations)
+
+        ## Check against the answer in the paper
+        # Match the maximal scaling matrix
+        max_scal = system.maximal_scaling_matrix()
+        max_scal_ans = numpy.array([[3, -1, 5]])
+        # Multiply by -1 (a trivial row operation) so that answers match.
+        self.assertTrue(numpy.all(- max_scal == max_scal_ans))
+
+        # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
+        hermite_multiplier_ans = numpy.array([[1, 1, -1],
+                                                  [2, 3, 2],
+                                                  [0, 0, 1]])
+
+        translation = ODETranslation(max_scal_ans, hermite_multiplier=hermite_multiplier_ans)
+
+        translated = translation.translate(system)
+        self.assertEqual(str(translated), 'dt/dt = 1\ndx0/dt = x0*(2*y0*y1/3 - 1/3)/t\ndy0/dt = y0*(y0*y1 - 1)/t\ndy1/dt = y1*(y1 + 1)/t')
+
+        ## Check our answer hasn't changed
+        translation = ODETranslation.from_ode_system(system)
+        translated = translation.translate(system)
+        self.assertEqual(str(translated), 'dt/dt = 1\ndx0/dt = x0*(y1/3 - 2/3)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')
+
+
 if __name__ == '__main__':
     main()
