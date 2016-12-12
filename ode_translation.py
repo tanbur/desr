@@ -76,6 +76,16 @@ class ODETranslation(object):
         ''' Create a translation given an ODESystem '''
         return cls(scaling_matrix=ode_system.maximal_scaling_matrix(), variables_domain=ode_system.variables)
 
+    def translate(self, system):
+        ''' Translate, depending on whether the scaling matrix acts on time or not '''
+        if ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
+            (numpy.all(self.scaling_matrix[:, 0] == 0))):
+            return self.translate_dep_var(system=system)
+        elif (len(system.variables) == self.scaling_matrix.shape[1]):
+            return self.translate_general(system=system)
+        raise ValueError("System doesn't have the right number of variables for translation")
+
+
     def translate_dep_var(self, system):
         ''' Given a system of ODEs, translate the system into a simplified version. Assume we are only working on
             dependent variables, not time.
@@ -120,7 +130,7 @@ class ODETranslation(object):
 
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
 
-    def translate(self, system):
+    def translate_general(self, system):
         ''' Given a system of ODEs, translate the system into a simplified version. General version
         '''
         # y = numpy.array(scale_action(system.variables, self.herm_mult_n))

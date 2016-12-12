@@ -207,9 +207,10 @@ class TestODESystemScaling(TestCase):
         translated = translation.translate_dep_var(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(y0 + 1)\ndy0/dt = y0*(1 + 1/t)')
         self.assertEqual(translated, answer)
+        self.assertEqual(translation.translate_dep_var(system), translation.translate(system))
 
         ## Check our answer using the general translation
-        translated = translation.translate(system)
+        translated = translation.translate_general(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(y0*y1 + y0)/t\ndy0/dt = y0/t\ndy1/dt = y1*(y0 + 1)/t')
         self.assertEqual(translated, answer)
 
