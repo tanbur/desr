@@ -1,5 +1,6 @@
 import itertools
 import numpy
+import sympy
 from numpy.testing import assert_array_equal
 from unittest import TestCase, main
 
@@ -214,12 +215,17 @@ class TestODESystemScaling(TestCase):
         answer = ODESystem.from_equations('dx0/dt = x0*(y0*y1 + y0)/t\ndy0/dt = y0/t\ndy1/dt = y1*(y0 + 1)/t')
         self.assertEqual(translated, answer)
 
+        ## Test reverse translating
+        t_var, c1_var, c2_var = sympy.var('t c1 c2')
+        reduced_soln = (c2_var*sympy.exp(t_var+c1_var*(1-t_var)*sympy.exp(t_var)), c1_var * t_var * sympy.exp(t_var))
+        orig_soln = translation.reverse_translate_dep_var(reduced_soln)
+        self.assertTupleEqual(orig_soln, (reduced_soln[0], reduced_soln[1] / reduced_soln[0]))
+
         ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate_dep_var(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(-y0 + 1/t)\ndy0/dt = y0*(1 + 1/t)')
         self.assertEqual(translated, answer)
-
 
     def test_example_6_6_hub_lab(self):
         ''' Example 6.6 from Hubert Labahn Scaling symmetries paper, where we act on time
@@ -248,11 +254,29 @@ class TestODESystemScaling(TestCase):
         answer = ODESystem.from_equations('dx0/dt = x0*(2*y0*y1/3 - 1/3)/t\ndy0/dt = y0*(y0*y1 - 1)/t\ndy1/dt = y1*(y1 + 1)/t')
         self.assertEqual(translated, answer)
 
+        ## Check reverse translation
+        reduced_soln = (sympy.var('t'),
+                        sympy.sympify('c3/(t**(1/3)*(ln(t-c1)-ln(t)+c2)**(2/3))'),  # x
+                        sympy.sympify('c1/(t*(ln(t-c1)-ln(t)+c2))'),  # y1
+                        sympy.sympify('t/(c1 - t)'))  # y2
+
+        orig_soln = translation.reverse_translate_general(reduced_soln)
+
+        # Solution from the paper
+        orig_soln_paper = [reduced_soln[2] / reduced_soln[1],
+                                          reduced_soln[1] ** 5 * reduced_soln[3] / reduced_soln[2] ** 4]
+        orig_soln_paper = [soln.subs({sympy.var('t'): sympy.sympify('t / (c3**3 / c1**2)')}) for soln in orig_soln_paper]
+
+        self.assertEqual(len(orig_soln), len(orig_soln_paper))
+        for sol1, sol2 in zip(orig_soln, orig_soln_paper):
+            self.assertEqual(sol1, sol2)
+
         ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(y1/3 - 2/3)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')
         self.assertEqual(translated, answer)
+
 
 
 if __name__ == '__main__':

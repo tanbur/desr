@@ -5,6 +5,13 @@ import sympy
 from hermite_helper import normal_hnf_col, INT_TYPE_DEF, hnf_col, is_hnf_col
 from ode_system import ODESystem
 
+def _int_inv(matrix_):
+    ''' Given an integer matrix, return the inverse, ensuring we do it right in the integers'''
+    float_inv = numpy.linalg.inv(matrix_)
+    int_inv = float_inv.astype(INT_TYPE_DEF)
+    assert numpy.max(numpy.abs(float_inv - int_inv)) < 1e-20
+    return int_inv
+
 class ODETranslation(object):
     ''' An object used for translating between systems of ODEs according to a scaling matrix '''
     def __init__(self, scaling_matrix, variables_domain=None, hermite_multiplier=None):
@@ -16,13 +23,11 @@ class ODETranslation(object):
             assert is_hnf_col(numpy.dot(scaling_matrix, hermite_multiplier))
             self._herm_mult = hermite_multiplier
 
-        # Make sure we have an integer inverse
-        float_inv = numpy.linalg.inv(self._herm_mult)
-        self._inv_herm_mult = float_inv.astype(INT_TYPE_DEF)
-        assert numpy.max(numpy.abs(float_inv - self._inv_herm_mult)) < 1e-20
-
-
+        self._inv_herm_mult = _int_inv(self._herm_mult)
         self._variables_domain = variables_domain
+
+    def __repr__(self):
+        return 'A={}\nV={}\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
 
     @property
     def scaling_matrix(self):
@@ -68,6 +73,20 @@ class ODETranslation(object):
         return self.inv_herm_mult[self.r:]
 
     @property
+    def dep_var_herm_mult(self):
+        ''' Return the Hermite multiplier, ignoring the independent variable '''
+        new_herm_mult = numpy.copy(self.herm_mult)
+        col_to_delete, new_herm_mult = new_herm_mult[0], new_herm_mult[1:]
+        new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
+        return new_herm_mult
+
+
+    @property
+    def dep_var_inv_herm_mult(self):
+        ''' Return the inverse Hermite multiplier, ignoring the independent variable '''
+        return _int_inv(self.dep_var_herm_mult)
+
+    @property
     def variables_domain(self):
         return self._variables_domain
 
@@ -92,9 +111,7 @@ class ODETranslation(object):
         '''
         # First check that our scaling action doesn't act on the independent variable
         assert numpy.all(self.scaling_matrix[:, 0] == 0)
-        new_herm_mult = numpy.copy(self.herm_mult)
-        col_to_delete, new_herm_mult = new_herm_mult[0], new_herm_mult[1:]
-        new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
+        new_herm_mult = self.dep_var_herm_mult
         reduced_scaling = ODETranslation(scaling_matrix=self.scaling_matrix[:, 1:],
                                          variables_domain=self.variables_domain,
                                          hermite_multiplier=new_herm_mult)
@@ -163,6 +180,52 @@ class ODETranslation(object):
         new_derivatives = [sympy.sympify(1)] + list(dxdt) + list(dydt)
         assert len(new_variables) == len(new_derivatives) == len(system.variables) + 1
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
+
+    def reverse_translate(self, variables):
+        ''' Given an iterable of variables, attempt to reverse translate '''
+        if len(variables) == self.scaling_matrix.shape[1]:
+            return self.reverse_translate_dep_var(variables=variables)
+        elif len(variables) == self.scaling_matrix.shape[1] - 1:
+            return self.reverse_translate_dep_var(variables=variables)
+        elif len(variables) == self.scaling_matrix.shape[1] + 1:
+            return self.reverse_translate_general(variables=variables)
+        else:
+            raise ValueError('Incorrect number of variables for reverse translation')
+
+    def reverse_translate_dep_var(self, variables):
+        ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
+        '''
+        if len(variables) == self.scaling_matrix.shape[1]:
+            return type(variables)(scale_action(variables, self.inv_herm_mult))
+        elif len(variables) == self.scaling_matrix.shape[1] - 1:
+            return type(variables)(scale_action(variables, self.dep_var_inv_herm_mult))
+        else:
+            raise ValueError('Incorrect number of variables for reverse translation')
+
+
+    def reverse_translate_general(self, variables):
+        ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
+            Here we expect t as the first variable, since we need to divide by it and substitute
+        '''
+        if len(variables) != self.scaling_matrix.shape[1] + 1:
+            raise ValueError('Incorrect number of variables for reverse translation')
+        indep_var = variables[0]
+        raw_solutions = scale_action(variables[1:], self.inv_herm_mult)
+        indep_const, raw_solutions = raw_solutions[0] / indep_var, raw_solutions[1:]
+
+        # Check indep_const is independent of t
+        indep_const_atoms = indep_const.atoms(sympy.Symbol)
+        if indep_var in indep_const_atoms:
+            raise ValueError('{} is not independent of the independent variable'.format(indep_const))
+        # And if we can, the original variables
+        if (self.variables_domain is not None) and len(set(self.variables_domain).intersection(indep_const_atoms)):
+            raise ValueError('{} is not independent of {}'.format(indep_const,
+                                                                  set(self.variables_domain).intersection(indep_const_atoms)))
+
+
+        to_sub = {indep_var: indep_var / indep_const}
+        solns = [soln.subs(to_sub) for soln in raw_solutions]
+        return type(variables)(solns)
 
 
 def scale_action(vect, scaling_matrix):
