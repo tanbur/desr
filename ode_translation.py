@@ -73,13 +73,12 @@ class ODETranslation(object):
         return self.inv_herm_mult[self.r:]
 
     @property
-    def dep_var_herm_mult(self):
+    def dep_var_herm_mult(self, indep_var_index=0):
         ''' Return the Hermite multiplier, ignoring the independent variable '''
         new_herm_mult = numpy.copy(self.herm_mult)
-        col_to_delete, new_herm_mult = new_herm_mult[0], new_herm_mult[1:]
+        col_to_delete, new_herm_mult = new_herm_mult[indep_var_index], numpy.delete(new_herm_mult, indep_var_index, axis=0)
         new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
         return new_herm_mult
-
 
     @property
     def dep_var_inv_herm_mult(self):
@@ -98,7 +97,7 @@ class ODETranslation(object):
     def translate(self, system):
         ''' Translate, depending on whether the scaling matrix acts on time or not '''
         if ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
-            (numpy.all(self.scaling_matrix[:, 0] == 0))):
+            (numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0))):
             return self.translate_dep_var(system=system)
         elif (len(system.variables) == self.scaling_matrix.shape[1]):
             return self.translate_general(system=system)
@@ -110,9 +109,9 @@ class ODETranslation(object):
             dependent variables, not time.
         '''
         # First check that our scaling action doesn't act on the independent variable
-        assert numpy.all(self.scaling_matrix[:, 0] == 0)
+        assert numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0)
         new_herm_mult = self.dep_var_herm_mult
-        reduced_scaling = ODETranslation(scaling_matrix=self.scaling_matrix[:, 1:],
+        reduced_scaling = ODETranslation(scaling_matrix=numpy.delete(self.scaling_matrix, system.indep_var_index, axis=1),
                                          variables_domain=self.variables_domain,
                                          hermite_multiplier=new_herm_mult)
 
@@ -134,11 +133,14 @@ class ODETranslation(object):
         else:
             auxiliary_variables = list(auxiliary_variables)
 
-        to_sub = dict(zip(system.variables[1:], scale_action(invariant_variables, reduced_scaling.inv_herm_mult_d)))
+        system_var_no_indep = list(system.variables)
+        system_var_no_indep.pop(system.indep_var_index)
+        to_sub = dict(zip(system_var_no_indep, scale_action(invariant_variables, reduced_scaling.inv_herm_mult_d)))
         system_derivatives = system.derivatives
         # fywd = F(y^(W_d)) in Hubert Labahn
         fywd = numpy.array([(f / v).subs(to_sub, simultaneous=True).expand() for v, f in
-                            zip(system.variables, system_derivatives)])[1:]
+                            zip(system.variables, system_derivatives)])
+        fywd = numpy.delete(fywd, system.indep_var_index)
         dydt = invariant_variables * numpy.dot(fywd, reduced_scaling.herm_mult_n)
         dxdt = auxiliary_variables * numpy.dot(fywd, reduced_scaling.herm_mult_i)
 
@@ -203,15 +205,17 @@ class ODETranslation(object):
             raise ValueError('Incorrect number of variables for reverse translation')
 
 
-    def reverse_translate_general(self, variables):
+    def reverse_translate_general(self, variables, system_indep_var_index=0):
         ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
             Here we expect t as the first variable, since we need to divide by it and substitute
         '''
         if len(variables) != self.scaling_matrix.shape[1] + 1:
             raise ValueError('Incorrect number of variables for reverse translation')
-        indep_var = variables[0]
-        raw_solutions = scale_action(variables[1:], self.inv_herm_mult)
-        indep_const, raw_solutions = raw_solutions[0] / indep_var, raw_solutions[1:]
+
+        indep_var, variables = variables[0], variables[1:]  # Indep var is always first in reverse translation only
+        raw_solutions = scale_action(variables, self.inv_herm_mult)
+        indep_const = raw_solutions[system_indep_var_index] / indep_var  # Shift up by 1 as our first variable is the independent variable
+        raw_solutions = numpy.hstack((raw_solutions[:system_indep_var_index], raw_solutions[system_indep_var_index + 1:]))
 
         # Check indep_const is independent of t
         indep_const_atoms = indep_const.atoms(sympy.Symbol)

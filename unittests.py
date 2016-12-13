@@ -190,7 +190,8 @@ class TestODESystemScaling(TestCase):
         equations = '''dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'''.split(';')
 
         system = ODESystem.from_equations(equations)
-
+        var_order = ['t', 'z1', 'z2']
+        system.reorder_variables(var_order)
 
         ## Check against the answer in the paper
         # Match the maximal scaling matrix
@@ -235,6 +236,7 @@ class TestODESystemScaling(TestCase):
         equations = '''dz1/dt = z1*(z1**5*z2 - 2)/(3*t);dz2/dt = z2*(10 - 2*z1**5*z2 + 3*z1**2*z2/t )/(3*t)'''.split(';')
 
         system = ODESystem.from_equations(equations)
+        system.reorder_variables(['t', 'z1', 'z2'])
 
         ## Check against the answer in the paper
         # Match the maximal scaling matrix
@@ -277,6 +279,52 @@ class TestODESystemScaling(TestCase):
         answer = ODESystem.from_equations('dx0/dt = x0*(y1/3 - 2/3)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')
         self.assertEqual(translated, answer)
 
+
+    def test_verhulst_log_growth(self):
+        ''' Verhult logistic growth model from Hubert Labahn Scaling symmetries paper
+            dn/dt = r*n*(1-n/k)
+        '''
+        equations = '''dn/dt = r*n*(1-n/k)'''
+
+        system = ODESystem.from_equations(equations)
+        system.reorder_variables('rktn')
+
+        ## Check against the answer in the paper
+        # Match the maximal scaling matrix
+        max_scal = system.maximal_scaling_matrix()
+        # Compare to the paper by swapping rows
+        self.assertTrue(numpy.all(max_scal[[1, 0]] == numpy.array([[-1, 0, 1, 0],
+                                                                   [0, 1, 0, 1]])))
+
+        herm_mult_paper = numpy.array([[-1, 0, 1, 0],
+                                       [0, 1, 0, -1],
+                                       [0, 0, 1, 0],
+                                       [0, 0, 0, 1]])
+        translator = ODETranslation(max_scal[[1, 0]], variables_domain=system.variables,
+                                    hermite_multiplier=herm_mult_paper)
+        translated = translator.translate(system)
+        answer = ODESystem.from_equations('dx0/dt = 0\ndx1/dt = 0\ndy0/dt = y0/t\ndy1/dt = y1*(-y0*y1 + y0)/t')
+        self.assertEqual(translated, answer)
+
+        ## Check reverse translation
+        reduced_solutions = (sympy.var('t'),  # indep var t
+                     sympy.var('c1'),  # x0
+                     sympy.var('c2'),  # x1
+                     sympy.sympify('t'),  # y0
+                     sympy.sympify('1/(1+c*exp(-t))'))  # y1
+
+        general_soln = translator.reverse_translate_general(reduced_solutions, system_indep_var_index=2)
+        paper_soln = tuple(map(sympy.sympify, ['1/c1', 'c2', 'c2/(c*exp(-t/c1) + 1)']))
+        self.assertTupleEqual(general_soln, paper_soln)
+
+        ## Now do it with our own Hermite multiplier, except we need the variables in a different order
+        system.reorder_variables('tnrk')
+        translator = ODETranslation.from_ode_system(system)
+        translated = translator.translate(system)
+        self.assertEqual(translated, answer)
+        general_soln = translator.reverse_translate_general(reduced_solutions, system_indep_var_index=0)
+        saved_soln = tuple(map(sympy.sympify, ['c1/(c*exp(-t*c2) + 1)', 'c2', 'c1']))  # Just a cached value
+        self.assertTupleEqual(general_soln, saved_soln)
 
 
 if __name__ == '__main__':
