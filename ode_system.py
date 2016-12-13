@@ -17,25 +17,37 @@ class ODESystem(object):
 
         self._indep_var = sympy.var('t') if indep_var is None else indep_var
 
-        assert self._indep_var == self._variables[0]
         assert len(self._variables) == len(self._derivatives)
-        assert self.derivatives[self.variables.index(self.indep_var)] == sympy.sympify(1)
+        assert self.derivatives[self.indep_var_index] == sympy.sympify(1)
 
     def __eq__(self, other):
         if type(self) is not type(other):
             return False
-        if self._variables != other.variables:
+
+        # Compare variables
+        self_var = sorted(self._variables, key=str)
+        other_var = sorted(other.variables, key=str)
+        if self_var != other_var:
             return False
-        for der1, der2 in zip(self._derivatives, other._derivatives):
-            if der1.expand() != der2.expand():
+
+        # Compare derivatives
+        self_der, other_der = self.derivative_dict, other.derivative_dict
+        for var1, var2 in zip(self_var, other_var):
+            if self_der.get(var1).expand() != other_der.get(var2).expand():
                 return False
+        # Compare independent variables
         if self._indep_var != other._indep_var:
             return False
+
         return True
 
     @property
     def indep_var(self):
         return self._indep_var
+
+    @property
+    def indep_var_index(self):
+        return self.variables.index(self.indep_var)
 
     @property
     def variables(self):
