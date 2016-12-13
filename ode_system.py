@@ -117,6 +117,11 @@ class ODESystem(object):
 
     def reorder_variables(self, variables):
         ''' Reorder the equation according to the new order of variables '''
+        if isinstance(variables, basestring):
+            if ' ' in variables:
+                variables = variables.split(' ')
+            else:
+                variables = tuple(variables)
         assert sorted(map(str, variables)) == sorted(map(str, self.variables))
         column_shuffle = []
         for new_var in variables:
