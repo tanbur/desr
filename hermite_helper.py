@@ -184,6 +184,11 @@ def normal_hnf_col(matrix_):
     assert_array_equal(numpy.dot(matrix_, v), h)
     return h, v
 
+def normal_hnf_row(matrix_):
+    ''' Row version of the normal hnf multiplier '''
+    h, v = normal_hnf_col(matrix_=matrix_.T)
+    return h.T, v.T
+
 ## Set defaults
 hnf_row = hnf_row_lll
 hnf_col = hnf_col_lll
