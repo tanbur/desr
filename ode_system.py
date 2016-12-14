@@ -70,16 +70,21 @@ class ODESystem(object):
         if isinstance(equations, str):
             equations = equations.strip().split('\n')
 
-        equations = dict(map(parse_de, equations))
+        deriv_dict = dict(map(parse_de, equations))
+        return cls.from_dict(deriv_dict=deriv_dict)
 
+    @classmethod
+    def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
+        ''' Instantiate from a text of equations '''
         # Order variables as dependent, time, parameters
-        variables = [indep_var] + sorted(equations.keys(), key=str) + sorted(expressions_to_variables(equations.values()), key=str)
+        variables = [indep_var] + sorted(deriv_dict.keys(), key=str) + sorted(expressions_to_variables(deriv_dict.values()), key=str)
         variables = unique_array_stable(variables)
 
-        assert equations.get(indep_var) is None
-        equations[indep_var] = sympy.sympify(1)
+        assert deriv_dict.get(indep_var) is None
+        deriv_dict[indep_var] = sympy.sympify(1)
 
-        return cls(variables, tuple([equations.get(var) for var in variables]))
+        return cls(variables, tuple([deriv_dict.get(var) for var in variables]))
+
 
     def __repr__(self):
         lines = ['d{}/d{} = {}'.format(var, self.indep_var, expr) for var, expr in zip(self.variables, self.derivatives)]
