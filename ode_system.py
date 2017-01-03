@@ -55,6 +55,11 @@ class ODESystem(object):
         return self._variables
 
     @property
+    def num_constants(self):
+        ''' Return the number of constant variables - specifically those which have a None derivative '''
+        return sum([1 if deriv is None else 0 for deriv in self._derivatives])
+
+    @property
     def derivatives(self):
         ''' Getter for an ordered tuple of expressions representing the derivatives of self.variables '''
         return [expr if expr is not None else sympy.sympify(0) for expr in self._derivatives]
