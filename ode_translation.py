@@ -183,6 +183,38 @@ class ODETranslation(object):
         assert len(new_variables) == len(new_derivatives) == len(system.variables) + 1
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
 
+    def translate_general_2(self, system):
+        ''' Translation with the cleanest conceptual framework '''
+        raise NotImplemented('Not yet finished for the general case')
+        num_inv_var = self.herm_mult_n.shape[1]
+        invariant_variables = sympy.var(' '.join(['y{}'.format(i) for i in xrange(num_inv_var)]))
+        if num_inv_var == 1:
+            invariant_variables = [invariant_variables]
+        else:
+            invariant_variables = list(invariant_variables)
+
+        num_aux_var = self.herm_mult_i.shape[1]
+        auxiliary_variables = sympy.var(' '.join(['x{}'.format(i) for i in xrange(num_aux_var)]))
+        if num_aux_var == 1:
+            auxiliary_variables = [auxiliary_variables]
+        else:
+            auxiliary_variables = list(auxiliary_variables)
+
+        to_sub = dict(zip(system.variables, scale_action(invariant_variables, self.inv_herm_mult_d)))
+        system_derivatives = system.derivatives
+        # fywd = F(y^(W_d)) in Hubert Labahn
+        fywd = numpy.array([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand() for v, f in
+                            zip(system.variables, system_derivatives)])
+        dydt = invariant_variables * numpy.dot(fywd, self.herm_mult_n) / system.indep_var
+        dxdt = auxiliary_variables * numpy.dot(fywd, self.herm_mult_i) / system.indep_var
+
+        new_variables = list(auxiliary_variables) + list(invariant_variables)
+        new_derivatives = list(dxdt) + list(dydt)
+        indep_deriv = dydt[system.indep_var_index]
+        new_derivatives = [deriv / indep_deriv for deriv in new_derivatives]
+        assert len(new_variables) == len(new_derivatives) == len(system.variables)
+        return ODESystem(new_variables, new_derivatives, indep_var=invariant_variables[system.indep_var_index])
+
     def reverse_translate(self, variables):
         ''' Given an iterable of variables, attempt to reverse translate '''
         if len(variables) == self.scaling_matrix.shape[1]:
