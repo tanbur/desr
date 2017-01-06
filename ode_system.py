@@ -95,7 +95,7 @@ class ODESystem(object):
         lines = ['d{}/d{} = {}'.format(var, self.indep_var, expr) for var, expr in zip(self.variables, self.derivatives)]
         return '\n'.join(lines)
 
-    def power_matrix(self):
+    def _power_matrix(self):
         ''' Determine the 'power' matrix of the system, by gluing together the power matrices of each derivative
             expression
 
@@ -108,22 +108,8 @@ class ODESystem(object):
 
     def maximal_scaling_matrix(self):
         ''' Determine the maximal scaling matrix leaving this system invariant '''
-        power_matrix = self.power_matrix()
-
-        hermite_rform, multiplier_rform = hnf_row(power_matrix)
-
-        # Find the non-zero rows at the bottom
-        row_is_zero = [numpy.all(row == 0) for row in hermite_rform]
-        # Make sure they all come at the end
-        num_nonzero = sum(map(int, row_is_zero))
-        if num_nonzero == 0:
-            return numpy.zeros((1, len(self.variables)))
-        assert numpy.all(hermite_rform[-num_nonzero:] == 0)
-
-        # Make sure we have the right number of columns
-        assert multiplier_rform.shape[1] == len(self.variables)
-        # Return the last num_nonzero rows of the Hermite multiplier
-        return multiplier_rform[-num_nonzero:]
+        exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
+        return maximal_scaling_matrix(exprs, variables=self.variables)
 
     def reorder_variables(self, variables):
         ''' Reorder the equation according to the new order of variables '''
@@ -210,6 +196,39 @@ def rational_expr_to_power_matrix(expr, variables):
     powers = numpy.array(powers, dtype=INT_TYPE_DEF).T
     return powers
 
+def maximal_scaling_matrix(exprs, variables=None):
+    ''' Determine the maximal scaling matrix leaving this system invariant
+
+    >>> exprs = ['z_1*z_3', 'z_1*z_2 / (z_3 ** 2)']
+    >>> exprs = map(sympy.sympify, exprs)
+    >>> maximal_scaling_matrix(exprs)
+    array([[-1,  3,  1]])
+
+    >>> exprs = ['(z_1 + z_2**2) / z_3']
+    >>> exprs = map(sympy.sympify, exprs)
+    >>> maximal_scaling_matrix(exprs)
+    array([[-2, -1, -2]])
+    '''
+    if variables is None:
+        variables = sorted(expressions_to_variables(exprs), key=str)
+    matrices = [rational_expr_to_power_matrix(expr, variables) for expr in exprs]
+    power_matrix = numpy.hstack(matrices)
+    power_matrix.shape[0] == len(variables)
+
+    hermite_rform, multiplier_rform = hnf_row(power_matrix)
+
+    # Find the non-zero rows at the bottom
+    row_is_zero = [numpy.all(row == 0) for row in hermite_rform]
+    # Make sure they all come at the end
+    num_nonzero = sum(map(int, row_is_zero))
+    if num_nonzero == 0:
+        return numpy.zeros((1, len(variables)))
+    assert numpy.all(hermite_rform[-num_nonzero:] == 0)
+
+    # Make sure we have the right number of columns
+    assert multiplier_rform.shape[1] == len(variables)
+    # Return the last num_nonzero rows of the Hermite multiplier
+    return multiplier_rform[-num_nonzero:]
 
 if __name__ == '__main__':
     import doctest
