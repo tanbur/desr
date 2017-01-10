@@ -144,7 +144,6 @@ def parse_de(diff_eq, indep_var='t'):
         raise ValueError('We only work in ordinary DEs in {}'.format(indep_var))
     return sympy.var(match.group(1)), sympy.sympify(match.group(3))
 
-
 def rational_expr_to_power_matrix(expr, variables):
     ''' Take a rational expression and determine the power matrix wrt an ordering on the variables, as on page 497 of
         Hubert-Labahn.
@@ -187,7 +186,11 @@ def rational_expr_to_power_matrix(expr, variables):
             ref_power = 1
         else:
             denom_terms = list(denom_terms)
-            ref_power = denom_terms.pop()  # Use the last term of the denominator as our reference power
+
+            # Find the lowest power
+            ref_power = min(denom_terms, key=lambda x: map(abs, monomial_to_powers(x, variables)))
+
+            denom_terms.remove(ref_power)  # Use the last term of the denominator as our reference power
 
     powers = []
     for mon in itertools.chain(num_terms, denom_terms):
