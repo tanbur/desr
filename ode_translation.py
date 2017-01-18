@@ -9,7 +9,9 @@ def _int_inv(matrix_):
     ''' Given an integer matrix, return the inverse, ensuring we do it right in the integers'''
     float_inv = numpy.linalg.inv(matrix_)
     int_inv = float_inv.astype(INT_TYPE_DEF)
-    assert numpy.max(numpy.abs(float_inv - int_inv)) < 1e-20
+
+    if numpy.max(numpy.abs(float_inv - int_inv)) > 1e-10:
+        raise ValueError('Unable to calculate integer inverse of {}'.format(matrix_))
     return int_inv
 
 class ODETranslation(object):
@@ -210,10 +212,10 @@ class ODETranslation(object):
 
         new_variables = list(auxiliary_variables) + list(invariant_variables)
         new_derivatives = list(dxdt) + list(dydt)
-        indep_deriv = dydt[system.indep_var_index]
+        indep_deriv = new_derivatives[system.indep_var_index]
         new_derivatives = [deriv / indep_deriv for deriv in new_derivatives]
         assert len(new_variables) == len(new_derivatives) == len(system.variables)
-        return ODESystem(new_variables, new_derivatives, indep_var=invariant_variables[system.indep_var_index])
+        return ODESystem(new_variables, new_derivatives, indep_var=new_variables[system.indep_var_index])
 
     def reverse_translate(self, variables):
         ''' Given an iterable of variables, attempt to reverse translate '''
@@ -263,6 +265,11 @@ class ODETranslation(object):
         solns = [soln.subs(to_sub) for soln in raw_solutions]
         return type(variables)(solns)
 
+    def invariants(self, variables=None):
+        ''' Give the invariants of the system'''
+        if variables is None:
+            variables = sympy.var(', '.join('z{}'.format(i) for i in xrange(self.herm_mult_n.size[1])))
+        return scale_action(variables, self.herm_mult_n)
 
 def scale_action(vect, scaling_matrix):
     ''' Given a vector of sympy expressions, determine the action defined by scaling_matrix
