@@ -298,6 +298,6 @@ def scale_action(vect, scaling_matrix):
         out.append(mon)
     return numpy.array(out)
 
-# if __name__ == '__main__':
-#     import doctest
-#     doctest.testmod()
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
