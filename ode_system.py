@@ -25,7 +25,7 @@ class ODESystem(object):
             return False
 
         # Compare variables
-        self_var = sorted(self._variables, key=str)
+        self_var = sorted(self.variables, key=str)
         other_var = sorted(other.variables, key=str)
         if self_var != other_var:
             return False
@@ -33,8 +33,16 @@ class ODESystem(object):
         # Compare derivatives
         self_der, other_der = self.derivative_dict, other.derivative_dict
         for var1, var2 in zip(self_var, other_var):
-            if self_der.get(var1).expand() != other_der.get(var2).expand():
-                return False
+            der1 = self_der.get(var1)
+            der2 = other_der.get(var2)
+            if der1 is None:
+                if der2 is not None:
+                    return False
+            else:
+                if der2 is None:
+                    return False
+                if der1.expand() != der2.expand():
+                    return False
         # Compare independent variables
         if self._indep_var != other._indep_var:
             return False
@@ -81,8 +89,11 @@ class ODESystem(object):
     @classmethod
     def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
         ''' Instantiate from a text of equations '''
+        all_var = sorted(expressions_to_variables(deriv_dict.values()), key=str)
+        dep_var = sorted(deriv_dict.keys(), key=str)
+        const_var = sorted(set(all_var).difference(dep_var).difference(set([indep_var])), key=str)
         # Order variables as dependent, time, parameters
-        variables = [indep_var] + sorted(deriv_dict.keys(), key=str) + sorted(expressions_to_variables(deriv_dict.values()), key=str)
+        variables = dep_var + [indep_var] + const_var
         variables = unique_array_stable(variables)
 
         assert deriv_dict.get(indep_var) is None
