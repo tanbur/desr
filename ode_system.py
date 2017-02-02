@@ -6,7 +6,7 @@ import sympy
 
 from hermite_helper import INT_TYPE_DEF, hnf_col, hnf_row, normal_hnf_col
 from sympy_helper import expressions_to_variables, unique_array_stable, monomial_to_powers
-
+from tex_tools import expr_to_tex, var_to_tex
 
 class ODESystem(object):
     ''' A class which represents a system of differential equations '''
@@ -92,8 +92,8 @@ class ODESystem(object):
         all_var = sorted(expressions_to_variables(deriv_dict.values()), key=str)
         dep_var = sorted(deriv_dict.keys(), key=str)
         const_var = sorted(set(all_var).difference(dep_var).difference(set([indep_var])), key=str)
-        # Order variables as dependent, time, parameters
-        variables = dep_var + [indep_var] + const_var
+        # Order variables as independent, dependent, parameters
+        variables = [indep_var] + dep_var + const_var
         variables = unique_array_stable(variables)
 
         assert deriv_dict.get(indep_var) is None
@@ -105,6 +105,13 @@ class ODESystem(object):
     def __repr__(self):
         lines = ['d{}/d{} = {}'.format(var, self.indep_var, expr) for var, expr in zip(self.variables, self.derivatives)]
         return '\n'.join(lines)
+
+    def to_tex(self):
+        ''' Return a tex version '''
+        line_template = '\\frac{{d{}}}{{d{}}} &= {}'
+        lines = [line_template.format(var_to_tex(var), var_to_tex(self.indep_var), expr_to_tex(expr))
+                 for var, expr in zip(self.variables, self.derivatives)]
+        return ' \\\\\n'.join(lines)
 
     def _power_matrix(self):
         ''' Determine the 'power' matrix of the system, by gluing together the power matrices of each derivative
