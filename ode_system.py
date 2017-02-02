@@ -84,22 +84,22 @@ class ODESystem(object):
             equations = equations.strip().split('\n')
 
         deriv_dict = dict(map(parse_de, equations))
-        return cls.from_dict(deriv_dict=deriv_dict)
+        system = cls.from_dict(deriv_dict=deriv_dict)
+        system.default_order_variables()
+        return system
 
     @classmethod
     def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
         ''' Instantiate from a text of equations '''
-        all_var = sorted(expressions_to_variables(deriv_dict.values()), key=str)
-        dep_var = sorted(deriv_dict.keys(), key=str)
-        const_var = sorted(set(all_var).difference(dep_var).difference(set([indep_var])), key=str)
-        # Order variables as independent, dependent, parameters
-        variables = [indep_var] + dep_var + const_var
-        variables = unique_array_stable(variables)
+        variables = set(expressions_to_variables(deriv_dict.values())).union(set(deriv_dict.keys()))
+        variables = tuple(variables.union(set([indep_var])))
 
-        assert deriv_dict.get(indep_var) is None
+        assert ((deriv_dict.get(indep_var) is None) or (deriv_dict.get(indep_var) == 1))
         deriv_dict[indep_var] = sympy.sympify(1)
 
-        return cls(variables, tuple([deriv_dict.get(var) for var in variables]))
+        system = cls(variables, tuple([deriv_dict.get(var) for var in variables]))
+        system.default_order_variables()
+        return system
 
 
     def __repr__(self):
@@ -145,6 +145,17 @@ class ODESystem(object):
         self._variables = tuple(numpy.array(self._variables)[column_shuffle])
         self._derivatives = tuple(numpy.array(self._derivatives)[column_shuffle])
 
+    def default_order_variables(self):
+        ''' Reorder the variables into (independent, dependent, variables) '''
+        all_var = self.variables
+        dep_var = sorted(self.derivative_dict.keys(), key=str)
+        dep_var.remove(self.indep_var)
+        const_var = sorted(set(all_var).difference(dep_var).difference(set([self.indep_var])), key=str)
+
+        # Order variables as independent, dependent, parameters
+        variables = [self.indep_var] + dep_var + const_var
+        assert len(variables) == len(set(variables))
+        self.reorder_variables(variables=variables)
 
 def parse_de(diff_eq, indep_var='t'):
     ''' Parse a first order ordinary differential equation and return (variable of derivative, rational function
