@@ -4,11 +4,24 @@ from collections import MutableMapping
 import sympy
 
 from ode_system import ODESystem
+from sympy_helper import unique_array_stable
 
 class ChemicalSpecies(object):
     ''' Chemical species, A_i from Harrington paper '''
     def __init__(self, id_):
         self.id_ = id_
+
+    def _key(self):
+        ''' Return the key of the object for comparison '''
+        return str(self.id_)
+
+    def __eq__(self, other):
+        if isinstance(other, ChemicalSpecies):
+            return self._key() == other._key()
+        return False
+
+    def __hash__(self):
+        return hash(self._key())
 
     def __repr__(self):
         return str(self.id_)
@@ -125,6 +138,49 @@ class ChemicalReactionNetwork(object):
 
     def __repr__(self):
         return '\n'.join([reaction.__repr__() for reaction in self.reactions])
+
+    @classmethod
+    def from_diagram(cls, diagram):
+        ''' Given a text diagram, return an interpreted chemical reaction network '''
+        species = []
+        complexes = []
+        reactions = []
+        complex0 = Complex({})
+        for reaction in diagram.strip().split('\n'):
+            _complexes = reaction.strip().split('->')
+            if len(_complexes) != 2:
+                raise ValueError('Invalid reaction: {}'.format(reaction))
+
+            # Process the left hand side
+            complex_left = _complexes[0].strip()
+            if complex_left:
+                complex_left = sympy.sympify(complex_left)
+                complex_left = {ChemicalSpecies(k): v for k, v in complex_left.as_coefficients_dict().iteritems()}
+                species.extend(complex_left.keys())
+                complex_left = Complex(complex_left)
+            else:
+                complex_left = complex0
+
+            complex_right = _complexes[1].strip()
+            if complex_right:
+                complex_right = sympy.sympify(complex_right)
+                complex_right = {ChemicalSpecies(k): v for k, v in complex_right.as_coefficients_dict().iteritems()}
+                species.extend(complex_right.keys())
+                complex_right = Complex(complex_right)
+            else:
+                complex_right = complex0
+
+            if complex_left not in complexes:
+                complexes.append(complex_left)
+            if complex_right not in complexes:
+                complexes.append(complex_right)
+
+            reactions.append(Reaction(complex_left, complex_right))
+
+        species = unique_array_stable(species)
+        return cls(species, complexes, reactions)
+
+
 
 if __name__ == '__main__':
     import doctest
