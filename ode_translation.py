@@ -18,18 +18,21 @@ class ODETranslation(object):
     ''' An object used for translating between systems of ODEs according to a scaling matrix '''
     def __init__(self, scaling_matrix, variables_domain=None, hermite_multiplier=None):
         scaling_matrix = numpy.copy(scaling_matrix)
+
         self._scaling_matrix = scaling_matrix
         self._scaling_matrix_hnf, self._herm_mult = normal_hnf_col(scaling_matrix)
 
         if hermite_multiplier is not None:
-            assert is_hnf_col(numpy.dot(scaling_matrix, hermite_multiplier))
+            if not is_hnf_col(numpy.dot(scaling_matrix, hermite_multiplier)):
+                raise ValueError('{}.{}={} is not in HNF'.format(scaling_matrix,
+                                 hermite_multiplier, numpy.dot(scaling_matrix, hermite_multiplier)))
             self._herm_mult = hermite_multiplier
 
         self._inv_herm_mult = _int_inv(self._herm_mult)
         self._variables_domain = variables_domain
 
     def __repr__(self):
-        return 'A={}\nV={}\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
+        return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
 
     @property
     def scaling_matrix(self):
@@ -111,9 +114,19 @@ class ODETranslation(object):
             dependent variables, not time.
         '''
         # First check that our scaling action doesn't act on the independent variable
-        assert numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0)
-        new_herm_mult = self.dep_var_herm_mult
-        reduced_scaling = ODETranslation(scaling_matrix=numpy.delete(self.scaling_matrix, system.indep_var_index, axis=1),
+        if self.scaling_matrix.shape[1] == len(system.variables):
+            assert numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0)
+            scaling_matrix = numpy.delete(self.scaling_matrix, system.indep_var_index, axis=1)
+            new_herm_mult = self.dep_var_herm_mult
+        else:
+            assert self.scaling_matrix.shape[1] == len(system.variables) - 1
+            scaling_matrix = numpy.copy(self.scaling_matrix)
+            new_herm_mult = self.dep_var_herm_mult
+            assert numpy.all(new_herm_mult[-1] == 0)
+            new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=0)
+            new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=1)
+
+        reduced_scaling = ODETranslation(scaling_matrix=scaling_matrix,
                                          variables_domain=self.variables_domain,
                                          hermite_multiplier=new_herm_mult)
 
@@ -268,7 +281,10 @@ class ODETranslation(object):
     def invariants(self, variables=None):
         ''' Give the invariants of the system'''
         if variables is None:
-            variables = sympy.var(', '.join('z{}'.format(i) for i in xrange(self.herm_mult_n.size[1])))
+            if self.variables_domain is None:
+                variables = sympy.var(', '.join('z{}'.format(i) for i in xrange(self.herm_mult_n.size[1])))
+            else:
+                variables = self.variables_domain
         return scale_action(variables, self.herm_mult_n)
 
 def scale_action(vect, scaling_matrix):
