@@ -63,9 +63,14 @@ class ODESystem(object):
         return self._variables
 
     @property
+    def constant_variables(self):
+        ''' Return the number of constant variables - specifically those which have a None derivative '''
+        return tuple(var for var, deriv in zip(self.variables, self._derivatives) if deriv is None)
+
+    @property
     def num_constants(self):
         ''' Return the number of constant variables - specifically those which have a None derivative '''
-        return sum([1 if deriv is None else 0 for deriv in self._derivatives])
+        return len(self.constant_variables)
 
     @property
     def derivatives(self):
@@ -245,7 +250,7 @@ def maximal_scaling_matrix(exprs, variables=None):
         variables = sorted(expressions_to_variables(exprs), key=str)
     matrices = [rational_expr_to_power_matrix(expr, variables) for expr in exprs]
     power_matrix = numpy.hstack(matrices)
-    power_matrix.shape[0] == len(variables)
+    assert power_matrix.shape[0] == len(variables)
 
     hermite_rform, multiplier_rform = hnf_row(power_matrix)
 
