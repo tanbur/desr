@@ -4,14 +4,14 @@ import sympy
 
 from hermite_helper import normal_hnf_col, INT_TYPE_DEF, hnf_col, is_hnf_col
 from ode_system import ODESystem
+from tex_tools import matrix_to_tex
 
 def _int_inv(matrix_):
     ''' Given an integer matrix, return the inverse, ensuring we do it right in the integers'''
     float_inv = numpy.linalg.inv(matrix_)
     int_inv = float_inv.astype(INT_TYPE_DEF)
-
     if numpy.max(numpy.abs(float_inv - int_inv)) > 1e-10:
-        raise ValueError('Unable to calculate integer inverse of {}'.format(matrix_))
+        raise ValueError('Unable to calculate integer inverse of:\n{}\nDifferent inverses are:\n{}\n{}'.format(matrix_, int_inv, float_inv))
     return int_inv
 
 class ODETranslation(object):
@@ -34,6 +34,12 @@ class ODETranslation(object):
     def __repr__(self):
         return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
 
+    def to_tex(self):
+        ''' Tex goodness '''
+        to_print = (self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
+        to_print = map(matrix_to_tex, to_print)
+        return 'A=\n{}\nV=\n{}\n\nW={}'.format(*to_print)
+
     @property
     def scaling_matrix(self):
         return self._scaling_matrix
@@ -50,6 +56,11 @@ class ODETranslation(object):
     def herm_mult(self):
         ''' Better known in Hubert Labahn as V '''
         return numpy.copy(self._herm_mult)
+
+    @property
+    def herm_form(self):
+        ''' Return the Hermite normal form '''
+        return numpy.copy(self._scaling_matrix_hnf)
 
     @property
     def herm_mult_i(self):
@@ -230,6 +241,128 @@ class ODETranslation(object):
         assert len(new_variables) == len(new_derivatives) == len(system.variables)
         return ODESystem(new_variables, new_derivatives, indep_var=new_variables[system.indep_var_index])
 
+    def _is_translate_parameter_compatible(self, system):
+        ''' Check weather a system can be used to use the parameter scheme of translation '''
+        # First check our system is in order
+        if system.indep_var_index != 0:
+            return False
+        for i in xrange(system.num_constants):
+            if system.derivatives[-i - 1] != sympy.sympify(0):
+                return False
+
+        # Now check our transformation is valid
+        m = len(system.variables) - system.num_constants
+        if not numpy.all(self.herm_mult_i[:m] == 0):
+            return False
+        if not numpy.all(self.herm_mult_n[:m, :m] == numpy.eye(m)):
+            return False
+        if not numpy.all(self.herm_mult_n[:m, m:] == 0):
+            return False
+
+        if not numpy.all(self.inv_herm_mult[self.r:self.r + m] ==
+                                 numpy.hstack((numpy.eye(m), numpy.zeros((m, system.num_constants))))):
+            return False
+
+        return True
+
+    def translate_parameter_substitutions(self, system):
+        ''' Given a system, determine the substitutions made in translation '''
+        num_variables = len(system.variables) - system.num_constants - 1  # Excluding indep
+        m = num_variables + 1  # Include indep
+
+        if not self._is_translate_parameter_compatible(system):
+            err_str = ['System is not compatible for parameter translation.']
+            err_str.append('System may not be ordered properly. Must be independent, dependent, constants. Order is: {}'.format(system.variables))
+            err_str.append('Transformation may not be appropriate. Should be 0, I, 0. Transformation is:')
+            err_str.append(repr(self.herm_mult_i[:m]))
+            err_str.append(repr(self.herm_mult_n[:m, :m]))
+            err_str.append(repr(self.herm_mult_n[:m, m:]))
+            raise ValueError('\n'.join(err_str))
+
+        # Extract the right bits of W
+        inv_herm_mult_d = self.inv_herm_mult_d[m:]
+        W_t = inv_herm_mult_d[:, :1]
+        W_v = inv_herm_mult_d[:, 1:m]
+        W_c = inv_herm_mult_d[:, m:]
+
+        # Form new constants
+        new_const = ['c{}'.format(i) for i in xrange(system.num_constants - self.r)]
+        new_const = map(sympy.sympify, new_const)
+        to_sub = {}
+
+        # Scale t
+        to_sub[system.indep_var] = scale_action(new_const, W_t)[0] * system.indep_var
+
+        # Scale dependents
+        const_scale = scale_action(new_const, W_v)
+        assert len(system.variables[1:num_variables + 1]) == len(const_scale.T)
+        for dep_var, _const_scale in zip(system.variables[1:num_variables + 1], const_scale.T):
+            to_sub[dep_var] = _const_scale * dep_var
+
+        # Scale constants
+        const_scale = scale_action(new_const, W_c)
+        assert len(system.variables[- system.num_constants:]) == len(const_scale.T)
+        for const, _const_scale in zip(system.variables[- system.num_constants:], const_scale.T):
+            to_sub[const] = _const_scale
+
+        return to_sub
+
+    def reverse_translate_parameter_substitutions(self, system):
+        ''' Given a system, determine the substitutions made in translation '''
+        num_variables = len(system.variables) - system.num_constants - 1  # Excluding indep
+        m = num_variables + 1  # Include indep
+
+        if not self._is_translate_parameter_compatible(system):
+            err_str = ['System is not compatible for parameter translation.']
+            err_str.append('System may not be ordered properly. Must be independent, dependent, constants. Order is: {}'.format(system.variables))
+            err_str.append('Transformation may not be appropriate. Should be 0, I, 0. Transformation is:')
+            err_str.append(repr(self.herm_mult_i[:m]))
+            err_str.append(repr(self.herm_mult_n[:m, :m]))
+            err_str.append(repr(self.herm_mult_n[:m, m:]))
+            raise ValueError('\n'.join(err_str))
+
+        # Extract the right bits of W
+        herm_mult_n = self.herm_mult_n[m:]
+        V_t = herm_mult_n[:, :1]
+        V_v = herm_mult_n[:, 1:m]
+        V_c = herm_mult_n[:, m:]
+
+        # Form new constants
+        new_const = ['c{}'.format(i) for i in xrange(system.num_constants - self.r)]
+        new_const = map(sympy.sympify, new_const)
+
+        old_const = system.constant_variables
+        to_sub = {}
+
+        # Scale t
+        to_sub[system.indep_var] = scale_action(old_const, V_t)[0] * system.indep_var
+
+        # Scale dependents
+        const_scale = scale_action(old_const, V_v)
+        assert len(system.variables[1:num_variables + 1]) == len(const_scale.T)
+        for dep_var, _const_scale in zip(system.variables[1:num_variables + 1], const_scale.T):
+            to_sub[dep_var] = _const_scale * dep_var
+
+        # Scale constants
+        const_scale = scale_action(old_const, V_c)
+        assert len(new_const) == len(const_scale.T)
+        for _new_const, _const_scale in zip(new_const, const_scale.T):
+            to_sub[_new_const] = _const_scale
+
+        return to_sub
+
+    def translate_parameter(self, system):
+        ''' Translate according to the parameter scheme '''
+        to_sub = self.translate_parameter_substitutions(system=system)
+
+        new_deriv_dict = {}
+        for key, val in system.derivative_dict.iteritems():
+            if key in system.constant_variables:
+                continue
+            new_deriv_dict[key] = val.subs(to_sub)
+
+        return ODESystem.from_dict(new_deriv_dict)
+
     def reverse_translate(self, variables):
         ''' Given an iterable of variables, attempt to reverse translate '''
         if len(variables) == self.scaling_matrix.shape[1]:
@@ -278,14 +411,65 @@ class ODETranslation(object):
         solns = [soln.subs(to_sub) for soln in raw_solutions]
         return type(variables)(solns)
 
+    def _validate_variables(self, variables, num_var, stem, use_domain_var):
+        ''' Make sure we have the right number of variables if given, else make
+            them up
+        '''
+        if variables is None:
+            if use_domain_var and (self.variables_domain is not None):
+                variables = self.variables_domain
+            else:
+                variables = sympy.var(', '.join('{}{}'.format(stem, i) for i in xrange(num_var)))
+
+        if len(variables) != num_var:
+            raise ValueError('Expecting {} variables not {}'.format(num_var, variables))
+        return variables
+
     def invariants(self, variables=None):
         ''' Give the invariants of the system'''
-        if variables is None:
-            if self.variables_domain is None:
-                variables = sympy.var(', '.join('z{}'.format(i) for i in xrange(self.herm_mult_n.size[1])))
-            else:
-                variables = self.variables_domain
+        variables = self._validate_variables(variables, self.n, 'y', True)
         return scale_action(variables, self.herm_mult_n)
+
+    def auxiliaries(self, variables=None):
+        ''' Return the auxiliary variables '''
+        variables = self._validate_variables(variables, self.n, 'x', True)
+        return scale_action(variables, self.herm_mult_i)
+
+    def rewrite_rules(self, variables=None):
+        ''' Given a set of variables, print the rewrite rules '''
+        variables = self._validate_variables(variables, self.n, 'z', True)
+
+        rules = scale_action(variables, numpy.dot(self.herm_mult_n, self.inv_herm_mult_d)).T
+        assert len(rules) == len(variables)
+
+        # Create a dict of rules
+        rules = dict(zip(variables, rules))
+
+        # Now print
+        for var in variables:
+            print '{}\t|-->\t{}'.format(var, rules[var])
+
+
+    def moving_frame(self, variables=None):
+        ''' Given a set of variables, print the rewrite rules '''
+        variables = self._validate_variables(variables, self.n, 'z', True)
+
+        rules = scale_action(variables, - self.herm_mult_i)
+        assert len(rules) == self.r
+        print '{}\t->\t{}'.format(tuple(variables), tuple(rules))
+
+    def rational_section(self, variables):
+        ''' Give the polynomials defining the moving frame '''
+        variables = self._validate_variables(variables, self.n, 'z', True)
+
+        vip = self.herm_mult_i
+        vip[vip < 0] = 0
+
+        vim = self.herm_mult_i
+        vim[vim > 0] = 0
+
+        rational_section = scale_action(variables, vip) - scale_action(variables, vim)
+        print rational_section
 
 def scale_action(vect, scaling_matrix):
     ''' Given a vector of sympy expressions, determine the action defined by scaling_matrix
