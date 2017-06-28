@@ -183,7 +183,7 @@ def first_nonzero_is_negative(A):
     is negative+ This assumes A is a nonzero matrix with at least two rows+
     """
     nonzero_columns = numpy.nonzero(
-        numpy.sum(A, axis=0, dtype=numpy.int64) != 0)[0]
+        numpy.sum(numpy.abs(A), axis=0, dtype=numpy.int64) != 0)[0]
     assert len(nonzero_columns)
     # Get the first nonzero column
     nonzero_col = A[:, numpy.min(nonzero_columns)]

@@ -98,7 +98,19 @@ def hnf_row_lll(matrix_):
         matrix_ = numpy.expand_dims(matrix_, axis=0)
     hnf, unimodular_matrix, rank = diophantine.lllhermite(matrix_, m1=1, n1=1)
     assert numpy.abs(numpy.abs(numpy.linalg.det(unimodular_matrix)) - 1) < 1e-10
+
+    # Rectify any negative entries in the HNF:
+    for row_ind, row in enumerate(hnf):
+        nonzero_ind = numpy.nonzero(row)[0]
+        if len(nonzero_ind):
+            if row[nonzero_ind[0]] < 0:
+                hnf[row_ind] *= -1
+                unimodular_matrix[row_ind] *= -1
+
+    if not is_hnf_row(hnf):
+        raise ValueError('{} not able to be put into row HNF. Output is:\n{}'.format(matrix_, hnf))
     assert is_hnf_row(hnf)
+    assert numpy.all(numpy.dot(unimodular_matrix, matrix_) == hnf)
     return hnf, unimodular_matrix
 
 def hnf_col_lll(matrix_):
