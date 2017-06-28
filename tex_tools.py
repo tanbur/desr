@@ -29,7 +29,7 @@ def var_to_tex(var):
     return re.sub(VAR_RE, _var_repler, str(var).replace('_', ''))
 
 def expr_to_tex(expr):
-    expr = str(expr).replace(' ', '')
+    expr = str(expr).replace(' ', '').replace('**1.0', '')
 
     tex = re.sub(VAR_RE, _var_repler, expr).replace('*', '')
     return tex
