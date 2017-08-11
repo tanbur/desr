@@ -1,5 +1,7 @@
 # desr
 
+desr is a package used for Differental Equation Symmetry Reduction.
+
 ## Dissertation
 The final Part C dissertation that this code is written for, submitted in 2017:
 
