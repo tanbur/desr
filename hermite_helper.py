@@ -116,7 +116,7 @@ def hnf_row_lll(matrix_):
 def hnf_col_lll(matrix_):
     ''' Compute the Hermite normal form, ACTS ON THE COLUMNS OF A MATRIX
         Input: integer mxn matrix A, nonzero, at least two rows
-        Output: small unimodular matrix B and HNF(A), such that BA=HNF(A)+
+        Output: small unimodular matrix B and HNF(A), such that AB=HNF(A)+
         The Havas, Majewski, Matthews LLL method is used
         We usually take alpha=m1/n1, with (m1,n1)=(1,1) to get best results
 
@@ -204,6 +204,110 @@ def normal_hnf_row(matrix_):
 ## Set defaults
 hnf_row = hnf_row_lll
 hnf_col = hnf_col_lll
+
+## Smith normal form
+def is_smf(matrix_):
+    """
+        Given a rectangular $n \times m$ integer matrix, determine whether it is in Smith normal form or not.
+
+        Parameters
+        ----------
+        matrix_ : numpy.ndarray
+            The rectangular matrix to be decomposed
+
+        Returns
+        -------
+        bool
+            True if in Smith normal form, False otherwise.
+
+    >>> matrix_ = numpy.diag([1, 1, 2])
+    >>> is_smf(matrix_)
+    True
+    >>> matrix_ = numpy.diag([-1, 1, 2])
+    >>> is_smf(matrix_)
+    False
+    >>> matrix_ = numpy.diag([2, 1, 1])
+    >>> is_smf(matrix_)
+    False
+    >>> matrix_ = numpy.diag([1, 2, 0])
+    >>> is_smf(matrix_)
+    True
+    >>> matrix_ = numpy.diag([2, 6, 0])
+    >>> is_smf(matrix_)
+    True
+    >>> matrix_ = numpy.diag([2, 5, 0])
+    >>> is_smf(matrix_)
+    False
+    >>> matrix_ = numpy.diag([0, 1, 1])
+    >>> is_smf(matrix_)
+    False
+    >>> matrix_ = numpy.diag([0])
+    >>> is_smf(matrix_)
+    True
+
+
+    >>> matrix_ = numpy.array([[2, 4, 4],
+    ...                        [-6, 6, 12],
+    ...                        [10, -4, -16]])
+    >>> is_smf(matrix_)
+    False
+
+    >>> matrix_ = numpy.diag([2, 6, 12])
+    >>> is_smf(matrix_)
+    True
+    """
+    diag = numpy.diagonal(matrix_)
+    # Check its a diagonal matrix
+    if numpy.count_nonzero(matrix_ - numpy.diag(diag)) > 0:
+        return False
+
+    # Check all entries are non-negative
+    if numpy.any(diag < 0):
+        return False
+
+    current_int = diag[0]
+    for i in xrange(1, len(diag)):
+        next_int = diag[i]
+        # All zeros go at the end
+        if (current_int == 0):
+            if (next_int != 0):
+                return False
+
+        if (current_int > 0):
+            if next_int % current_int:
+                return False
+        current_int = next_int
+    return True
+
+def smf(matrix_):
+    """
+        Given a rectangular $n \times m$ integer matrix, calculate the Smith Normal Form $S$ and multipliers $U$, $V$ such
+        that $U matrix_ V = S$.
+
+        Parameters
+        ----------
+        matrix_ : numpy.ndarray
+            The rectangular matrix to be decomposed
+
+        Returns
+        -------
+        :rtype: (numpy.ndarray, numpy.ndarray, numpy.ndarray)
+            The Smith normal form of matrix_, $U$ (the matrix representing the row operations of the decomposition),
+            $V$ (the matrix representing the column operations of the decomposition).
+
+    >>> matrix_ = numpy.array([[2, 4, 4],
+    ...                        [-6, 6, 12],
+    ...                        [10, -4, -16]])
+    >>> smf(matrix_)[0]
+    array([[ 2,  0,  0],
+           [ 0,  6,  0],
+           [ 0,  0, 12]])
+    """
+    intermediate, row_actions = hnf_row(matrix_=matrix_)
+    smith_normal_form, col_actions = hnf_col(matrix_=intermediate)
+    assert is_smf(smith_normal_form)
+    return smith_normal_form, row_actions, col_actions
+
 
 
 if __name__ == '__main__':
