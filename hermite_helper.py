@@ -1,6 +1,7 @@
 
 ##### Richard Tanburn
 import numpy
+import sympy
 import itertools
 
 import diophantine
@@ -93,11 +94,28 @@ def hnf_row_lll(matrix_):
         Output: small unimodular matrix B and HNF(A), such that BA=HNF(A)+
         The Havas, Majewski, Matthews LLL method is used
         We usually take alpha=m1/n1, with (m1,n1)=(1,1) to get best results
+
+    >>> matrix_ = numpy.array([[2, 0],
+    ...                        [3, 3],
+    ...                        [0, 0]])
+    >>> result = hnf_row_lll(matrix_)
+    >>> result[0]
+    array([[1, 3],
+           [0, 6],
+           [0, 0]])
+    >>> result[1]
+    array([[-1,  1,  0],
+           [-3,  2,  0],
+           [ 0,  0,  1]])
+    >>> numpy.all(numpy.dot(result[1], matrix_) == result[0])
+    True
     '''
     while len(matrix_.shape) < 2:
         matrix_ = numpy.expand_dims(matrix_, axis=0)
     hnf, unimodular_matrix, rank = diophantine.lllhermite(matrix_, m1=1, n1=1)
-    assert numpy.abs(numpy.abs(numpy.linalg.det(unimodular_matrix)) - 1) < 1e-10
+    unimodular_matrix = unimodular_matrix.astype(INT_TYPE_DEF)
+    if not numpy.abs(numpy.abs(numpy.linalg.det(unimodular_matrix)) - 1) < 1e-5:
+        raise RuntimeError('Row operation matrix {} has determinant {}, not +-1'.format(unimodular_matrix, numpy.linalg.det(unimodular_matrix)))
 
     # Rectify any negative entries in the HNF:
     for row_ind, row in enumerate(hnf):
@@ -111,7 +129,7 @@ def hnf_row_lll(matrix_):
         raise ValueError('{} not able to be put into row HNF. Output is:\n{}'.format(matrix_, hnf))
     assert is_hnf_row(hnf)
     assert numpy.all(numpy.dot(unimodular_matrix, matrix_) == hnf)
-    return hnf, unimodular_matrix
+    return hnf, unimodular_matrix.astype(INT_TYPE_DEF)
 
 def hnf_col_lll(matrix_):
     ''' Compute the Hermite normal form, ACTS ON THE COLUMNS OF A MATRIX
@@ -206,6 +224,141 @@ hnf_row = hnf_row_lll
 hnf_col = hnf_col_lll
 
 ## Smith normal form
+
+def expand_matrix(matrix_):
+    """
+        Given a rectangular $n \times m$ integer matrix, return an $n+1 \times m+1$ matrix where the extra row and
+        column are 0 except on the first entry which is 1.
+
+        Parameters
+        ----------
+        matrix_ : sympy.Matrix
+            The rectangular matrix to be expanded
+
+        Returns
+        -------
+        sympy.Matrix
+            An $n+1 \times m+1$ matrix
+
+    >>> matrix_ = sympy.diag(*[1, 1, 2])
+    >>> expand_matrix(matrix_)
+    Matrix([
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 2]])
+
+    >>> matrix_ = sympy.Matrix([1])
+    >>> expand_matrix(matrix_)
+    Matrix([
+    [1, 0],
+    [0, 1]])
+
+    >>> matrix_ = sympy.Matrix([[0]])
+    >>> expand_matrix(matrix_)
+    Matrix([
+    [1, 0],
+    [0, 0]])
+
+    >>> matrix_ = sympy.Matrix([[]])
+    >>> expand_matrix(matrix_)
+    Matrix([[1]])
+
+    >>> matrix_ = sympy.Matrix([[1, 2, 3]])
+    >>> expand_matrix(matrix_)
+    Matrix([
+    [1, 0, 0, 0],
+    [0, 1, 2, 3]])
+    >>> expand_matrix(matrix_.T)
+    Matrix([
+    [1, 0],
+    [0, 1],
+    [0, 2],
+    [0, 3]])
+    """
+    if len(matrix_.shape) != 2:
+        raise ValueError('expand_matrix called for non-square matrix of dimension {}.'.format(len(matrix_.shape)))
+
+    if len(matrix_) == 0:
+        return sympy.Matrix([[1]])
+
+    # Add top row
+    matrix_ = sympy.Matrix.vstack(sympy.zeros(1, matrix_.shape[1]), matrix_.copy())
+    # Add left column
+    matrix_ = sympy.Matrix.hstack(sympy.zeros(matrix_.shape[0], 1), matrix_)
+    matrix_[0, 0] = 1
+    return matrix_
+
+def _swap_ij_rows(matrices, i, j):
+    """
+        Given an iterable of matrices, swap all of the ith and jth rows.
+
+        Parameters
+        ----------
+        matrices : iter
+            The matrices to be acted on.
+        i : int
+            Index of first row
+        j : int
+            Index of second row
+
+        Returns
+        -------
+        matrices : tuple
+            The resulting matrices.
+
+    >>> matrices = [sympy.eye(3) for _ in xrange(2)]
+    >>> matrices = _swap_ij_rows(matrices, 0, 1)
+    >>> matrices[0]
+    Matrix([
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, 1]])
+    >>> matrices[1]
+    Matrix([
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, 1]])
+    """
+    matrices = [matrix_.copy() for matrix_ in matrices]
+    for matrix_ in matrices:
+        matrix_[i, :], matrix_[j, :] = matrix_[j, :].copy(), matrix_[i, :].copy()
+    return tuple(matrices)
+
+def _swap_ij_cols(matrices, i, j):
+    """
+        Given an iterable of matrices, swap all of the ith and jth columns. Acts in place.
+
+        Parameters
+        ----------
+        matrices : iter
+            The matrices to be acted on.
+        i : int
+            Index of first column
+        j : int
+            Index of second column
+
+        Returns
+        -------
+        matrices : tuple
+            The resulting matrices.
+
+    >>> matrices = [sympy.eye(3) for _ in xrange(2)]
+    >>> matrices = _swap_ij_cols(matrices, 0, 1)
+    >>> matrices[0]
+    Matrix([
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, 1]])
+    >>> matrices[1]
+    Matrix([
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, 0, 1]])
+    """
+    return tuple(matrix_.T for matrix_ in _swap_ij_rows([_matrix.T for _matrix in matrices], i, j))
+
+
 def is_smf(matrix_):
     """
         Given a rectangular $n \times m$ integer matrix, determine whether it is in Smith normal form or not.
@@ -242,10 +395,10 @@ def is_smf(matrix_):
     >>> is_smf(matrix_)
     False
     >>> matrix_ = numpy.diag([0])
-    >>> is_smf(matrix_)
-    True
+    >>> is_smf(numpy.diag([0])), is_smf(numpy.diag([1])), is_smf(numpy.diag([])),
+    (True, True, True)
 
-
+    Check a real example
     >>> matrix_ = numpy.array([[2, 4, 4],
     ...                        [-6, 6, 12],
     ...                        [10, -4, -16]])
@@ -255,10 +408,25 @@ def is_smf(matrix_):
     >>> matrix_ = numpy.diag([2, 6, 12])
     >>> is_smf(matrix_)
     True
+
+    Check it works for non-square matrices
+    >>> matrix_ = numpy.arange(20).reshape((4,5))
+    >>> is_smf(matrix_)
+    False
+
+    >>> matrix_ = numpy.array([[1, 0], [1, 2]])
+    >>> is_smf(matrix_)
+    False
     """
     diag = numpy.diagonal(matrix_)
+    if diag.size == 0:
+        return True
+
     # Check its a diagonal matrix
-    if numpy.count_nonzero(matrix_ - numpy.diag(diag)) > 0:
+    # Make a copy as fill_diagonal acts in place
+    _copy = matrix_.copy()
+    numpy.fill_diagonal(_copy, 0)
+    if numpy.count_nonzero(_copy) > 0:
         return False
 
     # Check all entries are non-negative
@@ -302,13 +470,96 @@ def smf(matrix_):
     array([[ 2,  0,  0],
            [ 0,  6,  0],
            [ 0,  0, 12]])
+
+    >>> matrix_ = numpy.diag([2, 1, 0])
+    >>> smf(matrix_)[0]
+    array([[1, 0, 0],
+           [0, 2, 0],
+           [0, 0, 0]])
+
+    >>> matrix_ = numpy.diag([5, 2, 0])
+    >>> smf(matrix_)[0]
+    array([[ 1,  0,  0],
+           [ 0, 10,  0],
+           [ 0,  0,  0]])
     """
-    intermediate, row_actions = hnf_row(matrix_=matrix_)
-    smith_normal_form, col_actions = hnf_col(matrix_=intermediate)
-    assert is_smf(smith_normal_form)
-    return smith_normal_form, row_actions, col_actions
+    matrix_ = sympy.Matrix(matrix_)
+    transformed = matrix_.copy()
 
+    if is_smf(sympy.matrix2numpy(transformed)):
+        row_actions = sympy.eye(matrix_.shape[0])
+        col_actions = sympy.eye(matrix_.shape[1])
+        return transformed, row_actions, col_actions
 
+    # First make a pivot in the top left corner
+    transformed, row_actions = hnf_row(matrix_=sympy.matrix2numpy(transformed))
+    transformed, col_actions = hnf_col(matrix_=transformed)
+    transformed, row_actions, col_actions = map(sympy.Matrix, [transformed, row_actions, col_actions])
+
+    # Now put the lower block into Smith normal form
+    block, _row_actions, _col_actions = smf(transformed[1:, 1:])
+    block, _row_actions, _col_actions = map(sympy.Matrix, [block, _row_actions, _col_actions])
+
+    # Compose the row and column actions found
+    row_actions = row_actions * expand_matrix(_row_actions)
+    col_actions = expand_matrix(_col_actions) * col_actions
+    transformed[1:, 1:] = block
+    assert row_actions * matrix_ * col_actions == transformed
+
+    # Now make sure the pivot is in the right place
+    for i in xrange(min(*transformed.shape) - 1):
+        if transformed[i+1,i+1] == 0:
+            break
+        # Move the pivot entry down if it's 0
+        if transformed[i,i] == 0:
+            transformed, row_actions = _swap_ij_rows([transformed, row_actions], i, i+1)
+            transformed, col_actions = _swap_ij_cols([transformed, col_actions], i, i+1)
+
+    assert row_actions * matrix_ *  col_actions == transformed
+    assert transformed[1:, 0].is_zero
+    assert transformed[0, 1:].is_zero
+
+    # Enforce diagonal entries to divide the next diagonal entry
+    for i in xrange(min(*transformed.shape) - 1):
+        assert row_actions * matrix_ * col_actions == transformed
+        if transformed[i+1,i+1] == 0:
+            break
+
+        # If we don't have division, ensure we do
+        if transformed[i+1,i+1] % transformed[i,i]:
+            # If we have division in the wrong order, just swap them around
+            if not transformed[i,i] % transformed[i+1,i+1]:
+                transformed, row_actions = _swap_ij_rows([transformed, row_actions], i, i + 1)
+                transformed, col_actions = _swap_ij_cols([transformed, col_actions], i, i + 1)
+                # Reset the counter
+                i = 0
+                continue
+
+            # Add one of column i+1 to column i, and perform a row reduction to get the hcf
+            transformed[:, i] += transformed[:, i+1]
+            col_actions[:, i] += col_actions[:, i+1]
+            assert row_actions * matrix_ * col_actions == transformed
+
+            transformed, _row_actions = hnf_row(sympy.matrix2numpy(transformed))
+            transformed, _row_actions = map(sympy.Matrix, [transformed, _row_actions])
+            row_actions = _row_actions * row_actions
+            assert row_actions * matrix_ * col_actions == transformed
+
+            # Now subtract the right multiple of column i from column i+1
+            assert (transformed[i, i+1] % transformed[i, i]) == 0
+            multiple = int(transformed[i, i+1] / transformed[i, i])
+            transformed[:, i+1] -= multiple * transformed[:, i]
+            col_actions[:, i+1] -= multiple * col_actions[:, i]
+            assert row_actions * matrix_ * col_actions == transformed
+
+            # Reset the loop, so we check from the beginning of the diagonal.
+            i = 0
+
+    # _prod = row_actions * matrix_ *  col_actions
+    assert row_actions * matrix_ *  col_actions == transformed
+
+    assert is_smf(sympy.matrix2numpy(transformed))
+    return tuple(map(lambda x: sympy.matrix2numpy(x, INT_TYPE_DEF), [transformed, row_actions, col_actions]))
 
 if __name__ == '__main__':
     import doctest
