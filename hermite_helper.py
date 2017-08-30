@@ -489,7 +489,7 @@ def smf(matrix_):
     if is_smf(sympy.matrix2numpy(transformed)):
         row_actions = sympy.eye(matrix_.shape[0])
         col_actions = sympy.eye(matrix_.shape[1])
-        return transformed, row_actions, col_actions
+        return tuple(map(lambda x: sympy.matrix2numpy(x, INT_TYPE_DEF), [transformed, row_actions, col_actions]))
 
     # First make a pivot in the top left corner
     transformed, row_actions = hnf_row(matrix_=sympy.matrix2numpy(transformed))
