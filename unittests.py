@@ -327,6 +327,43 @@ class TestODESystemScaling(TestCase):
         saved_soln = tuple(map(sympy.sympify, ['c1/(c*exp(-t*c2) + 1)', 'c2', 'c1']))  # Just a cached value
         self.assertTupleEqual(general_soln, saved_soln)
 
+    def test_example_pred_prey_choosing_invariants(self):
+        ''' Predator prey model from Hubert Labahn Scaling symmetries paper
+            dn/dt = n( r(1 - n/K) - kp/(n+d) )
+            dp/dt = sp(1 - hp / n)
+
+            Rather than using the invariants suggested by the algorithm, we pick our own and extend it.
+        '''
+        equations = '''dn/dt = n*( r*(1 - n/K) - k*p/(n+d) );dp/dt = s*p*(1 - h*p / n)'''.split(';')
+        system = ODESystem.from_equations(equations)
+
+        # Take the maximal scaling matrix
+        max_scal = ODETranslation.from_ode_system(system)
+
+        t, n, p, K, d, h, k, r, s = max_scal.variables_domain
+
+        self.assertTupleEqual(tuple(max_scal.invariants()), (s*t, n / d, k*p/(d*s), K/d, h*s/k, r/s))
+
+        # Choose a new invariant
+        invariant_choice = numpy.array([[1, 0, 0, 0, 0, 0, 0, 1, 0],  # t * r
+                                        [0, 0, 1, 0, -1, 1, 0, 0, 0],  # p * h /d
+                                        ]).T  # Note the transpose! Each column expresses an invariant
+
+        max_scal2 = max_scal.extend_from_invariants(invariant_choice=invariant_choice)
+        self.assertTupleEqual(tuple(max_scal2.invariants()), (t*r, h*p/d, n / d, K/d, h*s/k, r/s))
+
+        # This should work even if we move the time about
+        invariant_choice = numpy.array([[0, 0, 1, 0, -1, 1, 0, 0, 0],  # p * h /d
+                                        ]).T  # Note the transpose! Each column expresses an invariant
+        max_scal3 = max_scal.extend_from_invariants(invariant_choice=invariant_choice)
+        self.assertTupleEqual(tuple(max_scal3.invariants()), (h*p/d, t*s, n / d, K/d, h*s/k, r/s))
+
+
+        reduced_system = max_scal.translate(system=system)
+        reduced_system2 = max_scal2.translate(system=system)
+
+        self.assertNotEqual(reduced_system, reduced_system2)
+
 
 class TestChemicalReactionNetwork(TestCase):
     ''' Test cases for the ChemicalReactionNetwork class '''
