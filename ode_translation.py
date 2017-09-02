@@ -26,6 +26,10 @@ class ODETranslation(object):
         scaling_matrix = numpy.copy(scaling_matrix)
 
         self._scaling_matrix = scaling_matrix
+        self._variables_domain = variables_domain
+        if (variables_domain is not None) and (self.n != len(self.variables_domain)):
+            raise ValueError('{} variables given but we have {} actions'.format(len(self.variables_domain), self.n))
+
         self._scaling_matrix_hnf, self._herm_mult = normal_hnf_col(scaling_matrix)
 
         if hermite_multiplier is not None:
@@ -35,7 +39,6 @@ class ODETranslation(object):
             self._herm_mult = hermite_multiplier
 
         self._inv_herm_mult = _int_inv(self._herm_mult)
-        self._variables_domain = variables_domain
 
     def __repr__(self):
         return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
@@ -131,7 +134,7 @@ class ODETranslation(object):
             dependent variables, not time.
         '''
         # First check that our scaling action doesn't act on the independent variable
-        if self.scaling_matrix.shape[1] == len(system.variables):
+        if self.n == len(system.variables):
             assert numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0)
             scaling_matrix = numpy.delete(self.scaling_matrix, system.indep_var_index, axis=1)
             new_herm_mult = self.dep_var_herm_mult
@@ -143,8 +146,14 @@ class ODETranslation(object):
             new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=0)
             new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=1)
 
+        if self.variables_domain is not None:
+            variables_domain = list(self.variables_domain)
+            variables_domain.pop(system.indep_var_index)
+        else:
+            variables_domain = None
+
         reduced_scaling = ODETranslation(scaling_matrix=scaling_matrix,
-                                         variables_domain=self.variables_domain,
+                                         variables_domain=variables_domain,
                                          hermite_multiplier=new_herm_mult)
 
         # y = numpy.array(scale_action(system.variables, self.herm_mult_n))
@@ -449,7 +458,7 @@ class ODETranslation(object):
     def extend_from_invariants(self, invariant_choice):
         '''
         Extend a given set of invariants, expressed as a matrix of exponents, to find a Hermite multiplier that will
-        rewrite the system in the
+        rewrite the system in terms of invariant_choice.
 
         Parameters
         ----------
@@ -495,6 +504,41 @@ class ODETranslation(object):
                                   hermite_multiplier=hermite_multiplier)
 
         return max_scal
+
+    ## Determine whether an expression is an invariant or not
+    def is_invariant_expr(self, expr, variable_order=None):
+        '''
+        Determine whether an expression is an invariant or not
+
+        Parameters
+        ----------
+        expr : sympy.Expr
+            A symbolic expression which may or may not be an invariant under the scaling action.
+        variable_order : list, tuple
+            An ordered list that determines how the matrix acts on the variables.
+
+        Returns
+        -------
+        bool
+            True if the expression is an invariant.
+
+        '''
+        if variable_order is not None:
+            variable_order = tuple(variable_order)
+            if len(variable_order) != self.n:
+                raise ValueError('{} variables given but we have {} actions'.format(len(variable_order), self.n))
+        else:
+            if self.variables_domain is None:
+                raise ValueError('No variable order found to determine invariance.')
+            variable_order = self.variables_domain
+
+        missing_var = set(variable_order).difference(expr.atoms(sympy.Symbol))
+        if len(missing_var):
+            raise ValueError('Unknown action on variables: {}'.format())
+
+        raise NotImplemented()
+
+
 
 def scale_action(vect, scaling_matrix):
     ''' Given a vector of sympy expressions, determine the action defined by scaling_matrix
