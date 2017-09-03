@@ -1,10 +1,9 @@
 import itertools
-import numpy
 import re
 
 import sympy
 
-from hermite_helper import INT_TYPE_DEF, hnf_col, hnf_row, normal_hnf_col
+from hermite_helper import hnf_col, hnf_row, normal_hnf_col
 from sympy_helper import expressions_to_variables, unique_array_stable, monomial_to_powers
 from tex_tools import expr_to_tex, var_to_tex
 
@@ -125,7 +124,7 @@ class ODESystem(object):
         '''
         exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
         matrices = [rational_expr_to_power_matrix(expr, self.variables) for expr in exprs]
-        out = numpy.hstack(matrices)
+        out = sympy.Matrix.hstack(*matrices)
         assert out.shape[0] == len(self.variables)
         return out
 
@@ -147,8 +146,8 @@ class ODESystem(object):
             for i, var in enumerate(self.variables):
                 if str(var) == str(new_var):
                     column_shuffle.append(i)
-        self._variables = tuple(numpy.array(self._variables)[column_shuffle])
-        self._derivatives = tuple(numpy.array(self._derivatives)[column_shuffle])
+        self._variables = tuple(sympy.Matrix(self._variables).extract(0,column_shuffle))
+        self._derivatives = tuple(sympy.Matrix(self._derivatives).extract(0,column_shuffle))
 
     def default_order_variables(self):
         ''' Reorder the variables into (independent, dependent, variables) '''
@@ -179,35 +178,42 @@ def parse_de(diff_eq, indep_var='t'):
     return sympy.var(match.group(1)), sympy.sympify(match.group(3))
 
 def rational_expr_to_power_matrix(expr, variables):
-    ''' Take a rational expression and determine the power matrix wrt an ordering on the variables, as on page 497 of
-        Hubert-Labahn.
+    '''
+    Take a rational expression and determine the power matrix wrt an ordering on the variables, as on page 497 of
+    Hubert-Labahn.
 
-        >>> exprs = map(sympy.sympify, "n*( r*(1 - n/K) - k*p/(n+d) );s*p*(1 - h*p / n)".split(';'))
-        >>> variables = sorted(expressions_to_variables(exprs), key=str)
-        >>> rational_expr_to_power_matrix(exprs[0], variables)
-        array([[-1,  0,  0,  0, -1,  0],
-               [ 0,  1,  0,  0,  1,  1],
-               [ 0,  0,  0,  0,  0,  0],
-               [ 0,  0,  0,  1,  0,  0],
-               [ 2,  0,  1,  0,  1, -1],
-               [ 0,  0,  0,  1,  0,  0],
-               [ 1,  1,  1,  0,  1,  0],
-               [ 0,  0,  0,  0,  0,  0]])
+    >>> exprs = map(sympy.sympify, "n*( r*(1 - n/K) - k*p/(n+d) );s*p*(1 - h*p / n)".split(';'))
+    >>> variables = sorted(expressions_to_variables(exprs), key=str)
+    >>> variables
+    [K, d, h, k, n, p, r, s]
+    >>> rational_expr_to_power_matrix(exprs[0], variables)
+    Matrix([
+    [0, -1, -1, 0, 0,  0],
+    [0,  1,  0, 1, 0,  1],
+    [0,  0,  0, 0, 0,  0],
+    [1,  0,  0, 0, 0,  0],
+    [0,  1,  2, 0, 1, -1],
+    [1,  0,  0, 0, 0,  0],
+    [0,  1,  1, 1, 1,  0],
+    [0,  0,  0, 0, 0,  0]])
 
-        >>> rational_expr_to_power_matrix(exprs[1], variables)
-        array([[ 0,  0],
-               [ 0,  0],
-               [ 1,  0],
-               [ 0,  0],
-               [-1,  0],
-               [ 2,  1],
-               [ 0,  0],
-               [ 1,  1]])
+    >>> rational_expr_to_power_matrix(exprs[1], variables)
+    Matrix([
+    [ 0, 0],
+    [ 0, 0],
+    [ 1, 0],
+    [ 0, 0],
+    [-1, 0],
+    [ 2, 1],
+    [ 0, 0],
+    [ 1, 1]])
     '''
     expr = expr.cancel()
     num, denom = expr.as_numer_denom()
     num_const, num_terms = num.as_coeff_add()
     denom_const, denom_terms = denom.as_coeff_add()
+    num_terms = sorted(num_terms, key=str)
+    denom_terms = sorted(denom_terms, key=str)
 
     if denom_const != 0:
         ref_power = 1
@@ -230,7 +236,7 @@ def rational_expr_to_power_matrix(expr, variables):
     for mon in itertools.chain(num_terms, denom_terms):
         powers.append(monomial_to_powers(mon / ref_power, variables))
 
-    powers = numpy.array(powers, dtype=INT_TYPE_DEF).T
+    powers = sympy.Matrix(powers).T
     return powers
 
 def maximal_scaling_matrix(exprs, variables=None):
@@ -239,33 +245,33 @@ def maximal_scaling_matrix(exprs, variables=None):
     >>> exprs = ['z_1*z_3', 'z_1*z_2 / (z_3 ** 2)']
     >>> exprs = map(sympy.sympify, exprs)
     >>> maximal_scaling_matrix(exprs)
-    array([[-1,  3,  1]])
+    Matrix([[-1, 3, 1]])
 
     >>> exprs = ['(z_1 + z_2**2) / z_3']
     >>> exprs = map(sympy.sympify, exprs)
     >>> maximal_scaling_matrix(exprs)
-    array([[-2, -1, -2]])
+    Matrix([[-2, -1, -2]])
     '''
     if variables is None:
         variables = sorted(expressions_to_variables(exprs), key=str)
     matrices = [rational_expr_to_power_matrix(expr, variables) for expr in exprs]
-    power_matrix = numpy.hstack(matrices)
+    power_matrix = sympy.Matrix.hstack(*matrices)
     assert power_matrix.shape[0] == len(variables)
 
     hermite_rform, multiplier_rform = hnf_row(power_matrix)
 
     # Find the non-zero rows at the bottom
-    row_is_zero = [numpy.all(row == 0) for row in hermite_rform]
+    row_is_zero = [all([i == 0 for i in row]) for row in hermite_rform.tolist()]
     # Make sure they all come at the end
     num_nonzero = sum(map(int, row_is_zero))
     if num_nonzero == 0:
-        return numpy.zeros((1, len(variables)))
-    assert numpy.all(hermite_rform[-num_nonzero:] == 0)
+        return sympy.zeros(1, len(variables))
+    assert hermite_rform[-num_nonzero:, :].is_zero
 
     # Make sure we have the right number of columns
     assert multiplier_rform.shape[1] == len(variables)
     # Return the last num_nonzero rows of the Hermite multiplier
-    return multiplier_rform[-num_nonzero:]
+    return multiplier_rform[-num_nonzero:, :]
 
 if __name__ == '__main__':
     import doctest
