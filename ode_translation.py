@@ -1,8 +1,7 @@
 
-import numpy
 import sympy
 
-from hermite_helper import normal_hnf_col, INT_TYPE_DEF, hnf_col, is_hnf_col, smf
+from hermite_helper import normal_hnf_col, hnf_col, is_hnf_col, smf
 from ode_system import ODESystem
 from tex_tools import matrix_to_tex
 

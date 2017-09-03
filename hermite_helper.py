@@ -1,13 +1,9 @@
 
 ##### Richard Tanburn
 import sympy
-import numpy
 import itertools
 
 import diophantine
-
-INT_TYPES = (numpy.int64, int,)
-INT_TYPE_DEF = INT_TYPES[0]
 
 def get_pivot_row_indices(matrix_):
     ''' Return the pivot indices of the matrix

@@ -1,10 +1,8 @@
 import itertools
-import numpy
 import sympy
-from numpy.testing import assert_array_equal
 from unittest import TestCase, main
 
-from hermite_helper import is_hnf_row, INT_TYPE_DEF, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col
+from hermite_helper import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col
 from ode_system import ODESystem
 from ode_translation import ODETranslation
 from chemical_reaction_network import ChemicalReactionNetwork, ChemicalSpecies, Complex, Reaction
@@ -18,8 +16,8 @@ class TestHermiteMethods(TestCase):
         '''
         A = sympy.Matrix([[1,2],[3,4]])
         H, V = hnf_row_lll(A)
-        assert_array_equal(H, sympy.Matrix([[1,0],[0,2]]))
-        assert_array_equal(H, V * A)
+        self.assertEqual(H, sympy.Matrix([[1,0],[0,2]]))
+        self.assertEqual(H, V * A)
         self.assertTrue(is_hnf_row(H))
 
         A = sympy.Matrix(range(25)).reshape(5,5)
@@ -27,15 +25,15 @@ class TestHermiteMethods(TestCase):
         H_A = sympy.Matrix.vstack(sympy.Matrix([[5,   0,  -5, -10, -15],
                                                 [0,   1,   2,   3,   4]]),
                                   sympy.zeros(3, 5))
-        assert_array_equal(H, H_A)
-        assert_array_equal(H, V * A)
+        self.assertEqual(H, H_A)
+        self.assertEqual(H, V * A)
         self.assertTrue(is_hnf_row(H))
 
         ##TODO This test case is broken, the answer should be [[0, 1]]
         # A = sympy.Matrix([[0, -1]])
         # H, V = hnf_row_lll(A)
-        # assert_array_equal(H, sympy.Matrix([[0, -1]]))
-        # assert_array_equal(H, V * A)
+        # self.assertEqual(H, sympy.Matrix([[0, -1]]))
+        # self.assertEqual(H, V * A)
         # self.assertTrue(is_hnf_row(H))
 
     def test_example1(self):
@@ -78,9 +76,9 @@ class TestHermiteMethods(TestCase):
         H, V = hnf_row_lll(A)
         H_nz, H_z = H[:3, :], H[3:, :]
         self.assertTrue(H_z.is_zero)
-        assert_array_equal(H_nz, H_answer_webcalc)
-        assert_array_equal(V, V_answer_webcalc)
-        assert_array_equal(H, V * A)
+        self.assertEqual(H_nz, H_answer_webcalc)
+        self.assertEqual(V, V_answer_webcalc)
+        self.assertEqual(H, V * A)
 
     def test_wiki_example(self):
         ''' Test the examples from wikipedia
@@ -120,8 +118,8 @@ class TestHermiteMethods(TestCase):
         for A, H in ((A1, H1), (A2, H2), (A3, H3)):
             H_calc, V = hnf_row_lll(A)
             self.assertTrue(is_hnf_row(H))
-            assert_array_equal(H, H_calc)
-            assert_array_equal(H, V * A)
+            self.assertEqual(H, H_calc)
+            self.assertEqual(H, V * A)
 
     def test_normal_hermite_multiplier_example(self):
         ''' Example from Hubert Labahn '''
@@ -134,7 +132,7 @@ class TestHermiteMethods(TestCase):
         self.assertTrue(is_hnf_col(H_answer))
 
         H, V = normal_hnf_col(A)
-        assert_array_equal(H, H_answer)
+        self.assertEqual(H, H_answer)
         self.assertTrue(is_hnf_col(H))
 
         # Check V_n is in column hnf.

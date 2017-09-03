@@ -1,10 +1,4 @@
-import numpy
-from numpy.distutils.system_info import system_info
 
-import sympy
-from pip import __main__
-from sympy.matrices import Matrix
-from hermite_helper import normal_hnf_col, INT_TYPE_DEF
 import sympy
 from ode_system import ODESystem
 from ode_translation import ODETranslation, scale_action
