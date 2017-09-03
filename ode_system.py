@@ -140,14 +140,15 @@ class ODESystem(object):
                 variables = variables.split(' ')
             else:
                 variables = tuple(variables)
-        assert sorted(map(str, variables)) == sorted(map(str, self.variables))
+        if not sorted(map(str, variables)) == sorted(map(str, self.variables)):
+            raise ValueError('Mismatching variables:\n{} vs\n{}'.format(sorted(map(str, self.variables)), sorted(map(str, variables))))
         column_shuffle = []
         for new_var in variables:
             for i, var in enumerate(self.variables):
                 if str(var) == str(new_var):
                     column_shuffle.append(i)
-        self._variables = tuple(sympy.Matrix(self._variables).extract(0,column_shuffle))
-        self._derivatives = tuple(sympy.Matrix(self._derivatives).extract(0,column_shuffle))
+        self._variables = tuple(sympy.Matrix(self._variables).extract(column_shuffle, [0]))
+        self._derivatives = tuple(sympy.Matrix(self._derivatives).extract(column_shuffle, [0]))
 
     def default_order_variables(self):
         ''' Reorder the variables into (independent, dependent, variables) '''

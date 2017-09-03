@@ -16,121 +16,120 @@ class TestHermiteMethods(TestCase):
         ''' Example from the Sage website
             See: http://doc.sagemath.org/html/en/reference/matrices/sage/matrix/matrix_integer_dense.html
         '''
-        A = numpy.array([[1,2],[3,4]], dtype=INT_TYPE_DEF)
+        A = sympy.Matrix([[1,2],[3,4]])
         H, V = hnf_row_lll(A)
-        assert_array_equal(H, numpy.array([[1,0],[0,2]], dtype=INT_TYPE_DEF))
-        assert_array_equal(H, numpy.dot(V, A))
+        assert_array_equal(H, sympy.Matrix([[1,0],[0,2]]))
+        assert_array_equal(H, V * A)
         self.assertTrue(is_hnf_row(H))
 
-        A = numpy.arange(25, dtype=INT_TYPE_DEF).reshape((5,5))
+        A = sympy.Matrix(range(25)).reshape(5,5)
         H, V = hnf_row_lll(A)
-        H_A = numpy.vstack([numpy.array([[5,   0,  -5, -10, -15],
-                           [0,   1,   2,   3,   4]]),numpy.zeros((3, 5))]).astype(INT_TYPE_DEF)
+        H_A = sympy.Matrix.vstack(sympy.Matrix([[5,   0,  -5, -10, -15],
+                                                [0,   1,   2,   3,   4]]),
+                                  sympy.zeros(3, 5))
         assert_array_equal(H, H_A)
-        assert_array_equal(H, numpy.dot(V, A))
+        assert_array_equal(H, V * A)
         self.assertTrue(is_hnf_row(H))
 
         ##TODO This test case is broken, the answer should be [[0, 1]]
-        # A = numpy.array([[0, -1]], dtype=INT_TYPE_DEF)
+        # A = sympy.Matrix([[0, -1]])
         # H, V = hnf_row_lll(A)
-        # assert_array_equal(H, numpy.array([[0, -1]], dtype=INT_TYPE_DEF))
-        # assert_array_equal(H, numpy.dot(V, A))
+        # assert_array_equal(H, sympy.Matrix([[0, -1]]))
+        # assert_array_equal(H, V * A)
         # self.assertTrue(is_hnf_row(H))
 
     def test_example1(self):
         ''' Example from Extended gcd and Hermite nomal form via lattice basis reduction '''
 
-        A = numpy.empty((10, 10), dtype=INT_TYPE_DEF)
-        for i, j in itertools.product(range(10), repeat=2):
-            A[i, j] = (i + 1) ** 3 * (j + 1) ** 2 + i + j + 2
+        A = sympy.Matrix(10, 10, lambda i, j: (i + 1) ** 3 * (j + 1) ** 2 + i + j + 2)
 
-        H_answer_paper = numpy.array([[1, 0, 7, 22, 45, 76, 115, 162, 217, 280],
-                                     [0, 1, 4, 9, 16, 25, 36, 49, 64, 81],
-                                     [0, 0, 12, 36, 72, 120, 180, 252, 336, 432]], dtype=INT_TYPE_DEF)
-        H_answer_webcalc = numpy.array([[1, 0, 7, 22, 45, 76, 115, 162, 217, 280],
-                                        [0, 1, 4, 9, 16, 25, 36, 49, 64, 81],
-                                        [0, 0, 12, 36, 72, 120, 180, 252, 336, 432]], dtype=INT_TYPE_DEF)
+        H_answer_paper = sympy.Matrix([[1, 0, 7, 22, 45, 76, 115, 162, 217, 280],
+                                       [0, 1, 4, 9, 16, 25, 36, 49, 64, 81],
+                                       [0, 0, 12, 36, 72, 120, 180, 252, 336, 432]])
+        H_answer_webcalc = sympy.Matrix([[1, 0, 7, 22, 45, 76, 115, 162, 217, 280],
+                                          [0, 1, 4, 9, 16, 25, 36, 49, 64, 81],
+                                          [0, 0, 12, 36, 72, 120, 180, 252, 336, 432]])
 
         self.assertTrue(is_hnf_row(H_answer_webcalc))
-        self.assertTrue(is_hnf_row(numpy.vstack([H_answer_webcalc, numpy.zeros((7, 10))]).astype(INT_TYPE_DEF)))
+        self.assertTrue(is_hnf_row(sympy.Matrix.vstack(H_answer_webcalc, sympy.zeros(7, 10))))
 
-        V_answer_paper = numpy.array([[-10, -8, -5, 1, 2, 3, 5, 3, 0, -4],
-                                [-2, -1, 0, 1, -1, 0, 1, 0, 1, -1],
-                                [-15, -11, -4, 0, 4, 5, 4, 3, 1, -5],
-                                [1, -1, -1, 0, 2, -1, 0, 0, 0, 0],
-                                [0, 1, -1, -1, 1, -1, 2, -1, 0, 0],
-                                [1, 0, -1, -1, -1, 2, 0, 1, -1, 0],
-                                [1, 0, -1, 1, -1, 1, -1, 1, 1, -1],
-                                [-1, 0, 1, 0, 1, 1, -1, -2, 0, 1],
-                                [1, -1, 0, -1, 1, 0, 0, -1, 2, -1],
-                                [1, -2, 1, 1, -2, 0, 2, -1, 0, 0]], dtype=INT_TYPE_DEF)
+        V_answer_paper = sympy.Matrix([[-10, -8, -5, 1, 2, 3, 5, 3, 0, -4],
+                                       [-2, -1, 0, 1, -1, 0, 1, 0, 1, -1],
+                                       [-15, -11, -4, 0, 4, 5, 4, 3, 1, -5],
+                                       [1, -1, -1, 0, 2, -1, 0, 0, 0, 0],
+                                       [0, 1, -1, -1, 1, -1, 2, -1, 0, 0],
+                                       [1, 0, -1, -1, -1, 2, 0, 1, -1, 0],
+                                       [1, 0, -1, 1, -1, 1, -1, 1, 1, -1],
+                                       [-1, 0, 1, 0, 1, 1, -1, -2, 0, 1],
+                                       [1, -1, 0, -1, 1, 0, 0, -1, 2, -1],
+                                       [1, -2, 1, 1, -2, 0, 2, -1, 0, 0]])
 
-        V_answer_webcalc = numpy.array([[-10, -8, -5, 1, 2, 3, 5, 3, 0, -4],
-                                        [-2, -1, 0, 1, -1, 0, 1, 0, 1, -1],
-                                        [-15, -11, -4, 0, 4, 5, 4, 3, 1, -5],
-                                        [-1, 2, -1, -1, 2, 0, -2, 1, 0, 0],
-                                        [-1, 1, 0, 1, -1, 0, 0, 1, -2, 1],
-                                        [1, 0, -1, 0, -1, -1, 1, 2, 0, -1],
-                                        [-1, 0, 2, -1, 1, -1, 1, -1, -1, 1],
-                                        [-1, 0, 1, 1, 1, -2, 0, -1, 1, 0],
-                                        [0, -1, 1, 1, -1, 1, -2, 1, 0, 0],
-                                        [-1, 1, 1, 0, -2, 1, 0, 0, 0, 0]], dtype=INT_TYPE_DEF)
+        V_answer_webcalc = sympy.Matrix([[-10, -8, -5, 1, 2, 3, 5, 3, 0, -4],
+                                         [-2, -1, 0, 1, -1, 0, 1, 0, 1, -1],
+                                         [-15, -11, -4, 0, 4, 5, 4, 3, 1, -5],
+                                         [-1, 2, -1, -1, 2, 0, -2, 1, 0, 0],
+                                         [-1, 1, 0, 1, -1, 0, 0, 1, -2, 1],
+                                         [1, 0, -1, 0, -1, -1, 1, 2, 0, -1],
+                                         [-1, 0, 2, -1, 1, -1, 1, -1, -1, 1],
+                                         [-1, 0, 1, 1, 1, -2, 0, -1, 1, 0],
+                                         [0, -1, 1, 1, -1, 1, -2, 1, 0, 0],
+                                         [-1, 1, 1, 0, -2, 1, 0, 0, 0, 0]])
 
         H, V = hnf_row_lll(A)
-        H_nz, H_z = H[:3], H[3:]
-        self.assertTrue(numpy.all(H_z == 0))
+        H_nz, H_z = H[:3, :], H[3:, :]
+        self.assertTrue(H_z.is_zero)
         assert_array_equal(H_nz, H_answer_webcalc)
         assert_array_equal(V, V_answer_webcalc)
-        assert_array_equal(H, numpy.dot(V, A))
+        assert_array_equal(H, V * A)
 
     def test_wiki_example(self):
         ''' Test the examples from wikipedia
             https://en.wikipedia.org/wiki/Hermite_normal_form
         '''
 
-        A1 = numpy.array([[3,3,1,4],
-                         [0,1,0,0],
-                         [0,0,19,16],
-                         [0,0,0,3]])
-        H1 = numpy.array([[3,0,1,1],
-                         [0,1,0,0],
-                         [0,0,19,1],
-                         [0,0,0,3]])
+        A1 = sympy.Matrix([[3,3,1,4],
+                           [0,1,0,0],
+                           [0,0,19,16],
+                           [0,0,0,3]])
+        H1 = sympy.Matrix([[3,0,1,1],
+                           [0,1,0,0],
+                           [0,0,19,1],
+                           [0,0,0,3]])
 
-        A2 = numpy.array([[5, 0, 1, 4],
-                          [0, -1, -4, 99],
-                          [0, 20, 19, 16],
-                          [0, 0, 2, 1],
-                          [0, 0, 0, 3]])
-        A2 = numpy.hstack((numpy.zeros((5, 2)), A2))
-        A2 = numpy.vstack((A2, numpy.zeros((1, 6))))
-        H2 = numpy.array([[5, 0, 0, 2],
-                          [0, 1, 0, 1],
-                          [0, 0, 1, 2],
-                          [0, 0, 0, 3]])
-        H2 = numpy.hstack((numpy.zeros((4, 2)), H2))
-        H2 = numpy.vstack((H2, numpy.zeros((2, 6))))
+        A2 = sympy.Matrix([[5, 0, 1, 4],
+                           [0, -1, -4, 99],
+                           [0, 20, 19, 16],
+                           [0, 0, 2, 1],
+                           [0, 0, 0, 3]])
+        A2 = sympy.Matrix.hstack(sympy.zeros(5, 2), A2)
+        A2 = sympy.Matrix.vstack(A2, sympy.zeros(1, 6))
+        H2 = sympy.Matrix([[5, 0, 0, 2],
+                           [0, 1, 0, 1],
+                           [0, 0, 1, 2],
+                           [0, 0, 0, 3]])
+        H2 = sympy.Matrix.hstack(sympy.zeros(4, 2), H2)
+        H2 = sympy.Matrix.vstack(H2, sympy.zeros(2, 6))
 
-        A3 = numpy.array([[2, 3, 6, 2],
-                         [5, 6, 1, 6],
-                         [8, 3, 1, 1]])
-        H3 = numpy.array([[1, 0, 50, -11],
-                          [0, 3, 28,-2],
-                          [0, 0, 61, -13]])
+        A3 = sympy.Matrix([[2, 3, 6, 2],
+                          [5, 6, 1, 6],
+                          [8, 3, 1, 1]])
+        H3 = sympy.Matrix([[1, 0, 50, -11],
+                           [0, 3, 28,-2],
+                           [0, 0, 61, -13]])
 
         for A, H in ((A1, H1), (A2, H2), (A3, H3)):
             H_calc, V = hnf_row_lll(A)
             self.assertTrue(is_hnf_row(H))
             assert_array_equal(H, H_calc)
-            assert_array_equal(H, numpy.dot(V, A))
+            assert_array_equal(H, V * A)
 
     def test_normal_hermite_multiplier_example(self):
         ''' Example from Hubert Labahn '''
         # Broken due to different definitions of HNF
-        A = numpy.array([[8, 2, 15, 9, 11],
-                         [6, 0, 6, 2, 3]])
+        A = sympy.Matrix([[8, 2, 15, 9, 11],
+                          [6, 0, 6, 2, 3]])
 
-        H_answer = numpy.hstack([numpy.eye(2), numpy.zeros((2, 3))]).astype(INT_TYPE_DEF)
+        H_answer = sympy.Matrix.hstack(sympy.eye(2), sympy.zeros(2, 3))
 
         self.assertTrue(is_hnf_col(H_answer))
 
@@ -143,12 +142,11 @@ class TestHermiteMethods(TestCase):
         self.assertTrue(is_normal_hermite_multiplier(V, A))
 
         # We can't compare Hermite mmultipliers since we are using different definitions
-        V_answer = numpy.array([[-1, -2, -2, -2, -1],
-                                [-3, -14, -7, -13, -7],
-                                [1, 1, 2, 1, 0],
-                                [0, 2, 0, 3, 0],
-                                [0, 1, 0, 0, 2]])
-
+        V_answer = sympy.Matrix([[-1, -2, -2, -2, -1],
+                                 [-3, -14, -7, -13, -7],
+                                 [1, 1, 2, 1, 0],
+                                 [0, 2, 0, 3, 0],
+                                 [0, 1, 0, 0, 2]])
 
 class TestODESystemScaling(TestCase):
     ''' Test ode_system.py scaling methods '''
@@ -176,7 +174,7 @@ class TestODESystemScaling(TestCase):
         max_scal = max_scal[[1, 0, 2]]
         max_scal[1] -= max_scal[2]
 
-        max_scal_ans = numpy.array([[-1, 0, 0, -1, -1, 0, 1, 0, 0],
+        max_scal_ans = sympy.Matrix([[-1, 0, 0, -1, -1, 0, 1, 0, 0],
                                     [0, 1, 1, 0, 1, 1, 0, 1, 0],
                                     [0, -1, 0, 0, -1, 0, 0, 0, 1]])
 
@@ -198,10 +196,10 @@ class TestODESystemScaling(TestCase):
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(numpy.all(- max_scal == numpy.array([[0, 1, -1]])))
+        self.assertTrue(numpy.all(- max_scal == sympy.Matrix([[0, 1, -1]])))
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
-        hermite_multiplier_example = numpy.array([[0, 1, 0],
+        hermite_multiplier_example = sympy.Matrix([[0, 1, 0],
                                                   [1, 0, 1],
                                                   [0, 0, 1]])
 
@@ -242,12 +240,12 @@ class TestODESystemScaling(TestCase):
         ## Check against the answer in the paper
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
-        max_scal_ans = numpy.array([[3, -1, 5]])
+        max_scal_ans = sympy.Matrix([[3, -1, 5]])
         # Multiply by -1 (a trivial row operation) so that answers match.
         self.assertTrue(numpy.all(- max_scal == max_scal_ans))
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
-        hermite_multiplier_ans = numpy.array([[1, 1, -1],
+        hermite_multiplier_ans = sympy.Matrix([[1, 1, -1],
                                                   [2, 3, 2],
                                                   [0, 0, 1]])
 
@@ -294,10 +292,10 @@ class TestODESystemScaling(TestCase):
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         # Compare to the paper by swapping rows
-        self.assertTrue(numpy.all(max_scal[[1, 0]] == numpy.array([[-1, 0, 1, 0],
+        self.assertTrue(numpy.all(max_scal[[1, 0]] == sympy.Matrix([[-1, 0, 1, 0],
                                                                    [0, 1, 0, 1]])))
 
-        herm_mult_paper = numpy.array([[-1, 0, 1, 0],
+        herm_mult_paper = sympy.Matrix([[-1, 0, 1, 0],
                                        [0, 1, 0, -1],
                                        [0, 0, 1, 0],
                                        [0, 0, 0, 1]])
@@ -345,7 +343,7 @@ class TestODESystemScaling(TestCase):
         self.assertTupleEqual(tuple(max_scal.invariants()), (s*t, n / d, k*p/(d*s), K/d, h*s/k, r/s))
 
         # Choose a new invariant
-        invariant_choice = numpy.array([[1, 0, 0, 0, 0, 0, 0, 1, 0],  # t * r
+        invariant_choice = sympy.Matrix([[1, 0, 0, 0, 0, 0, 0, 1, 0],  # t * r
                                         [0, 0, 1, 0, -1, 1, 0, 0, 0],  # p * h /d
                                         ]).T  # Note the transpose! Each column expresses an invariant
 
@@ -353,7 +351,7 @@ class TestODESystemScaling(TestCase):
         self.assertTupleEqual(tuple(max_scal2.invariants()), (t*r, h*p/d, n / d, K/d, h*s/k, r/s))
 
         # This should work even if we move the time about
-        invariant_choice = numpy.array([[0, 0, 1, 0, -1, 1, 0, 0, 0],  # p * h /d
+        invariant_choice = sympy.Matrix([[0, 0, 1, 0, -1, 1, 0, 0, 0],  # p * h /d
                                         ]).T  # Note the transpose! Each column expresses an invariant
         max_scal3 = max_scal.extend_from_invariants(invariant_choice=invariant_choice)
         self.assertTupleEqual(tuple(max_scal3.invariants()), (h*p/d, t*s, n / d, K/d, h*s/k, r/s))

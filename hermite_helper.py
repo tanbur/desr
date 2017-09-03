@@ -190,7 +190,7 @@ def is_normal_hermite_multiplier(hermite_multiplier, matrix_):
     Returns:
         bool: matrix_ * hermite_multiplier is in Hermite normal form and hermite_multiplier is in normal form.
     '''
-    if numpy.linalg.matrix_rank(matrix_) != matrix_.shape[0]:
+    if matrix_.rank() != matrix_.shape[0]:
         raise ValueError('Matrix must have full row rank')
 
     r, n = matrix_.shape
@@ -198,10 +198,10 @@ def is_normal_hermite_multiplier(hermite_multiplier, matrix_):
         raise ValueError("Matrix dimensions don't match")
 
     # Check matrix . hermite_multiplier = [H 0]
-    prod = numpy.dot(matrix_, hermite_multiplier)
+    prod = matrix_ * hermite_multiplier
     hermite_form, residue = prod[:, :r], prod[:, r:]
     # Condition a)
-    if not numpy.all(residue == 0):
+    if not residue.is_zero:
         return False
     if not is_hnf_col(hermite_form):
         return False
@@ -211,8 +211,8 @@ def is_normal_hermite_multiplier(hermite_multiplier, matrix_):
         return False
     # Condition c)
     for i in xrange(r):
-        pivot_val = numpy.max(herm_mul_n[i])
-        if numpy.any(numpy.abs(herm_mul_i[i]) >= pivot_val):
+        pivot_val = max(herm_mul_n[i, :])
+        if any(herm_mul_i.row(i).applyfunc(lambda x: abs(x) >= pivot_val)):
             return False
 
     return True
