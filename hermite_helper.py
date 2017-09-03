@@ -524,12 +524,12 @@ def smf(matrix_):
 
     Parameters
     ----------
-    matrix_ : numpy.ndarray
+    matrix_ : sympy.Matrix
         The rectangular matrix to be decomposed
 
     Returns
     -------
-    :rtype: (numpy.ndarray, numpy.ndarray, numpy.ndarray)
+    :rtype: (sympy.Matrix, sympy.Matrix, sympy.Matrix)
         The Smith normal form of matrix_, $U$ (the matrix representing the row operations of the decomposition),
         $V$ (the matrix representing the column operations of the decomposition).
 
