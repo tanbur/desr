@@ -9,7 +9,7 @@
 
 ### Prerequisites
 
-This package requires the numpy and sympy packages.
+This package requires the Sympy package.
 
 ### Installing
 
