@@ -9,21 +9,24 @@ from tex_tools import matrix_to_tex
 def _int_inv(matrix_):
     ''' Given an integer matrix, return the inverse, ensuring we do it right in the integers
 
-    >>> matrix_ = numpy.array([[5, 2, -2],
-    ...                        [-7, -3, 3],
-    ...                        [17, 8, -7]])
+    >>> matrix_ = sympy.Matrix([[5, 2, -2],
+    ...                         [-7, -3, 3],
+    ...                         [17, 8, -7]])
     >>> _int_inv(matrix_)
-    array([[ 3,  2,  0],
-           [-2,  1,  1],
-           [ 5,  6,  1]])
+    Matrix([
+    [ 3, 2, 0],
+    [-2, 1, 1],
+    [ 5, 6, 1]])
     '''
+    if abs(matrix_.det()) != 1:
+        raise ValueError('Nonunimodular matrix with det {} cannot be inverted over the integers.'.format(matrix_.det()))
     sympy_inverse = sympy.Matrix(matrix_).inv()
-    return sympy.matrix2numpy(sympy_inverse).astype(INT_TYPE_DEF)
+    return sympy_inverse
 
 class ODETranslation(object):
     ''' An object used for translating between systems of ODEs according to a scaling matrix '''
     def __init__(self, scaling_matrix, variables_domain=None, hermite_multiplier=None):
-        scaling_matrix = numpy.copy(scaling_matrix)
+        scaling_matrix = scaling_matrix.copy()
 
         self._scaling_matrix = scaling_matrix
         self._variables_domain = variables_domain
@@ -33,9 +36,9 @@ class ODETranslation(object):
         self._scaling_matrix_hnf, self._herm_mult = normal_hnf_col(scaling_matrix)
 
         if hermite_multiplier is not None:
-            if not is_hnf_col(numpy.dot(scaling_matrix, hermite_multiplier)):
+            if not is_hnf_col(scaling_matrix * hermite_multiplier):
                 raise ValueError('{}.{}={} is not in HNF'.format(scaling_matrix,
-                                 hermite_multiplier, numpy.dot(scaling_matrix, hermite_multiplier)))
+                                 hermite_multiplier, scaling_matrix * hermite_multiplier))
             self._herm_mult = hermite_multiplier
 
         self._inv_herm_mult = _int_inv(self._herm_mult)
@@ -64,12 +67,12 @@ class ODETranslation(object):
     @property
     def herm_mult(self):
         ''' Better known in Hubert Labahn as V '''
-        return numpy.copy(self._herm_mult)
+        return self._herm_mult.copy()
 
     @property
     def herm_form(self):
         ''' Return the Hermite normal form '''
-        return numpy.copy(self._scaling_matrix_hnf)
+        return self._scaling_matrix_hnf.copy()
 
     @property
     def herm_mult_i(self):
@@ -85,24 +88,27 @@ class ODETranslation(object):
     @property
     def inv_herm_mult(self):
         ''' Better known in Hubert Labahn as W '''
-        return numpy.copy(self._inv_herm_mult)
+        return self._inv_herm_mult.copy()
 
     @property
     def inv_herm_mult_u(self):
         ''' The first component of W = Wu '''
-        return self.inv_herm_mult[:self.r]
+        return self.inv_herm_mult[:self.r, :]
 
     @property
     def inv_herm_mult_d(self):
         ''' The second component W = Wd '''
-        return self.inv_herm_mult[self.r:]
+        return self.inv_herm_mult[self.r:, :]
 
     @property
     def dep_var_herm_mult(self, indep_var_index=0):
         ''' Return the Hermite multiplier, ignoring the independent variable '''
-        new_herm_mult = numpy.copy(self.herm_mult)
-        col_to_delete, new_herm_mult = new_herm_mult[indep_var_index], numpy.delete(new_herm_mult, indep_var_index, axis=0)
-        new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
+        new_herm_mult = self.herm_mult.copy()
+        col_to_delete = new_herm_mult[indep_var_index, :]
+        new_herm_mult.row_del(indep_var_index)
+        cols_to_keep = [ind for ind, val in enumerate(col_to_delete) if val == 0]
+        new_herm_mult = new_herm_mult.extract(range(new_herm_mult.rows), cols_to_keep)
+        # new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
         return new_herm_mult
 
     @property
@@ -122,7 +128,7 @@ class ODETranslation(object):
     def translate(self, system):
         ''' Translate, depending on whether the scaling matrix acts on time or not '''
         if ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
-            (numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0))):
+            (self.scaling_matrix[:, system.indep_var_index].is_zero)):
             return self.translate_dep_var(system=system)
         elif (len(system.variables) == self.scaling_matrix.shape[1]):
             return self.translate_general(system=system)
@@ -135,16 +141,17 @@ class ODETranslation(object):
         '''
         # First check that our scaling action doesn't act on the independent variable
         if self.n == len(system.variables):
-            assert numpy.all(self.scaling_matrix[:, system.indep_var_index] == 0)
-            scaling_matrix = numpy.delete(self.scaling_matrix, system.indep_var_index, axis=1)
+            assert self.scaling_matrix[:, system.indep_var_index].is_zero
+            scaling_matrix = self.scaling_matrix.copy()
+            scaling_matrix.col_del(system.indep_var_index)
             new_herm_mult = self.dep_var_herm_mult
         else:
             assert self.scaling_matrix.shape[1] == len(system.variables) - 1
-            scaling_matrix = numpy.copy(self.scaling_matrix)
+            scaling_matrix = self.scaling_matrix.copy()
             new_herm_mult = self.dep_var_herm_mult
-            assert numpy.all(new_herm_mult[-1] == 0)
-            new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=0)
-            new_herm_mult = numpy.delete(new_herm_mult, system.indep_var_index, axis=1)
+            assert new_herm_mult[-1, :].is_zero
+            new_herm_mult.col_del(system.indep_var_index)
+            new_herm_mult.row_del(system.indep_var_index)
 
         if self.variables_domain is not None:
             variables_domain = list(self.variables_domain)
@@ -156,8 +163,8 @@ class ODETranslation(object):
                                          variables_domain=variables_domain,
                                          hermite_multiplier=new_herm_mult)
 
-        # y = numpy.array(scale_action(system.variables, self.herm_mult_n))
-        #print 'y = ', numpy.array(scale_action(system.variables, self.herm_mult_n))
+        # y = sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
+        #print 'y = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
         num_inv_var = reduced_scaling.herm_mult_n.shape[1]
         invariant_variables = sympy.var(' '.join(['y{}'.format(i) for i in xrange(num_inv_var)]))
         if num_inv_var == 1:
@@ -165,8 +172,8 @@ class ODETranslation(object):
         else:
             invariant_variables = list(invariant_variables)
 
-        # x = numpy.array(scale_action(system.variables, self.herm_mult_i))
-        #print 'x = ', numpy.array(scale_action(system.variables, self.herm_mult_i))
+        # x = sympy.Matrix(scale_action(system.variables, self.herm_mult_i))
+        #print 'x = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_i))
         num_aux_var = reduced_scaling.herm_mult_i.shape[1]
         auxiliary_variables = sympy.var(' '.join(['x{}'.format(i) for i in xrange(num_aux_var)]))
         if num_aux_var == 1:
@@ -179,11 +186,11 @@ class ODETranslation(object):
         to_sub = dict(zip(system_var_no_indep, scale_action(invariant_variables, reduced_scaling.inv_herm_mult_d)))
         system_derivatives = system.derivatives
         # fywd = F(y^(W_d)) in Hubert Labahn
-        fywd = numpy.array([(f / v).subs(to_sub, simultaneous=True).expand() for v, f in
-                            zip(system.variables, system_derivatives)])
-        fywd = numpy.delete(fywd, system.indep_var_index)
-        dydt = invariant_variables * numpy.dot(fywd, reduced_scaling.herm_mult_n)
-        dxdt = auxiliary_variables * numpy.dot(fywd, reduced_scaling.herm_mult_i)
+        fywd = sympy.Matrix([(f / v).subs(to_sub, simultaneous=True).expand() for v, f in
+                            zip(system.variables, system_derivatives)]).T
+        fywd.col_del(system.indep_var_index)
+        dydt = sympy.Matrix(invariant_variables).T.multiply_elementwise(fywd * reduced_scaling.herm_mult_n)
+        dxdt = sympy.Matrix(auxiliary_variables).T.multiply_elementwise(fywd * reduced_scaling.herm_mult_i)
 
         new_variables = [system.indep_var] + list(auxiliary_variables) + list(invariant_variables)
         new_derivatives = [sympy.sympify(1)] + list(dxdt) + list(dydt)
@@ -193,8 +200,8 @@ class ODETranslation(object):
     def translate_general(self, system):
         ''' Given a system of ODEs, translate the system into a simplified version. General version
         '''
-        # y = numpy.array(scale_action(system.variables, self.herm_mult_n))
-        #print 'y = ', numpy.array(scale_action(system.variables, self.herm_mult_n))
+        # y = sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
+        #print 'y = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
         num_inv_var = self.herm_mult_n.shape[1]
         invariant_variables = sympy.var(' '.join(['y{}'.format(i) for i in xrange(num_inv_var)]))
         if num_inv_var == 1:
@@ -202,8 +209,8 @@ class ODETranslation(object):
         else:
             invariant_variables = list(invariant_variables)
 
-        # x = numpy.array(scale_action(system.variables, self.herm_mult_i))
-        #print 'x = ', numpy.array(scale_action(system.variables, self.herm_mult_i))
+        # x = sympy.Matrix(scale_action(system.variables, self.herm_mult_i))
+        #print 'x = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_i))
         num_aux_var = self.herm_mult_i.shape[1]
         auxiliary_variables = sympy.var(' '.join(['x{}'.format(i) for i in xrange(num_aux_var)]))
         if num_aux_var == 1:
@@ -214,10 +221,10 @@ class ODETranslation(object):
         to_sub = dict(zip(system.variables, scale_action(invariant_variables, self.inv_herm_mult_d)))
         system_derivatives = system.derivatives
         # fywd = F(y^(W_d)) in Hubert Labahn
-        fywd = numpy.array([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand() for v, f in
-                            zip(system.variables, system_derivatives)])
-        dydt = invariant_variables * numpy.dot(fywd, self.herm_mult_n) / system.indep_var
-        dxdt = auxiliary_variables * numpy.dot(fywd, self.herm_mult_i) / system.indep_var
+        fywd = sympy.Matrix([(system.indep_var * f / v).subs(to_sub, simultaneous=True).expand() for v, f in
+                            zip(system.variables, system_derivatives)]).T
+        dydt = sympy.Matrix(invariant_variables).T.multiply_elementwise(fywd * self.herm_mult_n) / system.indep_var
+        dxdt = sympy.Matrix(auxiliary_variables).T.multiply_elementwise(fywd * self.herm_mult_i) / system.indep_var
 
         new_variables = [system.indep_var] + list(auxiliary_variables) + list(invariant_variables)
         new_derivatives = [sympy.sympify(1)] + list(dxdt) + list(dydt)
@@ -235,15 +242,15 @@ class ODETranslation(object):
 
         # Now check our transformation is valid
         m = len(system.variables) - system.num_constants
-        if not numpy.all(self.herm_mult_i[:m] == 0):
+        if not self.herm_mult_i[:m, :].is_zero:
             return False
-        if not numpy.all(self.herm_mult_n[:m, :m] == numpy.eye(m)):
+        if not self.herm_mult_n[:m, :m] == sympy.eye(m):
             return False
-        if not numpy.all(self.herm_mult_n[:m, m:] == 0):
+        if not self.herm_mult_n[:m, m:].is_zero:
             return False
 
-        if not numpy.all(self.inv_herm_mult[self.r:self.r + m] ==
-                                 numpy.hstack((numpy.eye(m), numpy.zeros((m, system.num_constants))))):
+        if not (self.inv_herm_mult[self.r:self.r + m] ==
+                sympy.Matrix.hstack(sympy.eye(m), sympy.zeros(m, system.num_constants))):
             return False
 
         return True
@@ -378,7 +385,7 @@ class ODETranslation(object):
         indep_var, variables = variables[0], variables[1:]  # Indep var is always first in reverse translation only
         raw_solutions = scale_action(variables, self.inv_herm_mult)
         indep_const = raw_solutions[system_indep_var_index] / indep_var  # Shift up by 1 as our first variable is the independent variable
-        raw_solutions = numpy.hstack((raw_solutions[:system_indep_var_index], raw_solutions[system_indep_var_index + 1:]))
+        raw_solutions.col_del(system_indep_var_index)
 
         # Check indep_const is independent of t
         indep_const_atoms = indep_const.atoms(sympy.Symbol)
@@ -422,7 +429,7 @@ class ODETranslation(object):
         ''' Given a set of variables, print the rewrite rules '''
         variables = self._validate_variables(variables, self.n, 'z', True)
 
-        rules = scale_action(variables, numpy.dot(self.herm_mult_n, self.inv_herm_mult_d)).T
+        rules = scale_action(variables, self.herm_mult_n * self.inv_herm_mult_d).T
         assert len(rules) == len(variables)
 
         # Create a dict of rules
@@ -462,7 +469,7 @@ class ODETranslation(object):
 
         Parameters
         ----------
-        invariant_choice : numpy.ndarray
+        invariant_choice : sympy.Matrix
             The $n \times k$ matrix representing the invariants, where $n$ is the number of variables and $k$ is the
             number of given invariants.
 
@@ -472,34 +479,34 @@ class ODETranslation(object):
             An ODETranslation representing the rewrite rules in terms of the given invariants.
 
         >>> variables = sympy.symbols(' '.join(['y{}'.format(i) for i in xrange(6)]))
-        >>> ode_translation = ODETranslation(numpy.array([[1, 0, 3, 0, 2, 2],
-        ...                                               [0, 2, 0, 1, 0, 1],
-        ...                                               [2, 0, 0, 3, 0, 0]]))
+        >>> ode_translation = ODETranslation(sympy.Matrix([[1, 0, 3, 0, 2, 2],
+        ...                                                [0, 2, 0, 1, 0, 1],
+        ...                                                [2, 0, 0, 3, 0, 0]]))
         >>> ode_translation.invariants(variables=variables)
-        array([y0**3*y2*y5**2/(y3**2*y4**5), y1*y4**2/y5**2, y2**2/y4**3], dtype=object)
+        Matrix([[y0**3*y2*y5**2/(y3**2*y4**5), y1*y4**2/y5**2, y2**2/y4**3]])
 
         Now we can express two new invariants, which we think are more interesting, as a matrix.
         We pick the product of the first two invariants, and the product of the last two invariants:
         y0**3 * y1 * y2/(y3**2 * y4**3) and y1 *  y2**2/(y4 * y5**2)
-        >>> new_inv = numpy.array([[3, 1, 1, -2, -3, 0],
-        ...                        [0, 1, 2, 0, -1, -2]]).T
+        >>> new_inv = sympy.Matrix([[3, 1, 1, -2, -3, 0],
+        ...                         [0, 1, 2, 0, -1, -2]]).T
 
         >>> new_translation = ode_translation.extend_from_invariants(new_inv)
         >>> new_translation.invariants(variables=variables)
-        array([y0**3*y1*y2/(y3**2*y4**3), y1*y2**2/(y4*y5**2), y1*y4**2/y5**2], dtype=object)
+        Matrix([[y0**3*y1*y2/(y3**2*y4**3), y1*y2**2/(y4*y5**2), y1*y4**2/y5**2]])
         '''
         ## Step 1: Check we have invariants
-        choice_actions = numpy.dot(self.scaling_matrix, invariant_choice)
-        if not numpy.all(choice_actions == 0):
+        choice_actions = self.scaling_matrix * invariant_choice
+        if not choice_actions.is_zero:
             raise ValueError('The desired combinations {} are not invariants of the scaling action.'.format(invariant_choice))
 
         ## Step 2: Try and extend the choices by a basis of invariants
         ## Step 2a: Extend (W_d . invariant_choice) to a unimodular matrix
-        column_operations = extend_rectangular_matrix(numpy.dot(self.inv_herm_mult_d, invariant_choice))
+        column_operations = extend_rectangular_matrix(self.inv_herm_mult_d * invariant_choice)
 
         # Step 2b: Apply these column operations to the current Hermite multiplier
         hermite_multiplier = self.herm_mult.copy()
-        hermite_multiplier[:, self.r:] = numpy.dot(self.herm_mult_n, column_operations)
+        hermite_multiplier[:, self.r:] = self.herm_mult_n * column_operations
         max_scal = ODETranslation(scaling_matrix=self.scaling_matrix, variables_domain=self.variables_domain,
                                   hermite_multiplier=hermite_multiplier)
 
@@ -548,24 +555,24 @@ def scale_action(vect, scaling_matrix):
 
         Example 3.3
         >>> v = sympy.var('l')
-        >>> A = numpy.array([[2, 3]])
+        >>> A = sympy.Matrix([[2, 3]])
         >>> scale_action([v], A)
-        array([l**2, l**3], dtype=object)
+        Matrix([[l**2, l**3]])
 
         Example 3.4
         >>> v = sympy.var('m v')
-        >>> A = numpy.array([[6, 0, -4, 1, 3], [0, 3, 1, -4, 3]])
+        >>> A = sympy.Matrix([[6, 0, -4, 1, 3], [0, 3, 1, -4, 3]])
         >>> scale_action(v, A)
-        array([m**6, v**3, v/m**4, m/v**4, m**3*v**3], dtype=object)
+        Matrix([[m**6, v**3, v/m**4, m/v**4, m**3*v**3]])
     '''
     assert len(vect) == scaling_matrix.shape[0]
     out = []
-    for col in scaling_matrix.T:
+    for col in scaling_matrix.T.tolist():
         mon = 1
         for var, power in zip(vect, col):
             mon *= var ** power
         out.append(mon)
-    return numpy.array(out)
+    return sympy.Matrix(out).T
 
 def extend_rectangular_matrix(matrix_, check_unimodular=True):
     """
@@ -578,16 +585,17 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
 
         Returns
         -------
-        numpy.ndarray
+        sympy.Matrix
             Square matrix of determinant 1.
 
-    >>> matrix_ = numpy.array([[1, 0],
-    ...                        [0, 1],
-    ...                        [0, 0],])
+    >>> matrix_ = sympy.Matrix([[1, 0],
+    ...                         [0, 1],
+    ...                         [0, 0],])
     >>> extend_rectangular_matrix(matrix_)
-    array([[1, 0, 0],
-           [0, 1, 0],
-           [0, 0, 1]])
+    Matrix([
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1]])
 
     By default, we will throw if we cannot extend a matrix to a unimodular matrix.
     >>> matrix_[0, 0] = 2
@@ -595,19 +603,18 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
     Traceback (most recent call last):
         ...
     ValueError: Unable to extend the matrix
-    [[2 0]
-     [0 1]
-     [0 0]]
+    Matrix([[2, 0], [0, 1], [0, 0]])
     to a unimodular matrix.
 
     We can extend some more interesting matrices.
-    >>> matrix_ = numpy.array([[3, 2],
-    ...                        [-2, 1],
-    ...                        [5, 6],])
+    >>> matrix_ = sympy.Matrix([[3, 2],
+    ...                         [-2, 1],
+    ...                         [5, 6],])
     >>> extend_rectangular_matrix(matrix_)
-    array([[ 3,  2,  0],
-           [-2,  1,  1],
-           [ 5,  6,  1]])
+    Matrix([
+    [ 3, 2, 0],
+    [-2, 1, 1],
+    [ 5, 6, 1]])
     """
     matrix_ = matrix_.copy()
     if len(matrix_.shape) != 2:
@@ -617,7 +624,7 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
 
     # Assume we have more rows than columns
     if n < m:
-        return numpy.transpose(extend_rectangular_matrix(matrix_=numpy.transpose(matrix_), check_unimodular=check_unimodular))
+        return extend_rectangular_matrix(matrix_=matrix_.T, check_unimodular=check_unimodular).T
     elif n == m:
         return matrix_
 
@@ -627,19 +634,19 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
     if check_unimodular:
         # We require our extension to have determinant 1, which is only possible if the final entry on the leading diagonal
         # is 1.
-        if numpy.diagonal(smith_normal_form)[-1] != 1:
+        if smith_normal_form[min(n, m) - 1, min(n, m) - 1] != 1:
             raise ValueError('Unable to extend the matrix\n{}\nto a unimodular matrix.'.format(matrix_))
 
     # To extend to a unimodular matrix, we can extend matrix_ using the last n-m columns of the row_actions matrix
     # Since we can extend modulo column operations, put these last few columns in column Hermite normal form
     extension = hnf_col(_int_inv(row_actions)[:, m:])[0]
 
-    extended = numpy.hstack((matrix_, extension))
+    extended = sympy.Matrix.hstack(matrix_, extension)
 
     assert extended.shape[0] == extended.shape[1] == n
     if check_unimodular:
-        if not numpy.abs(numpy.abs(numpy.linalg.det(extended)) - 1) < 1e-5:
-            raise RuntimeError('Extended matrix\n{}\nhas determinant {}, not +-1'.format(extended, numpy.linalg.det(extended)))
+        if abs(extended.det()) != 1:
+            raise RuntimeError('Extended matrix\n{}\nhas determinant {}, not +-1'.format(extended, extended.det()))
 
     return extended
 

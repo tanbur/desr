@@ -171,14 +171,14 @@ class TestODESystemScaling(TestCase):
 
         # Now do a couple of row ops so we get exactly the same matrix. This amount to changing the scalar
         # operations lambda1 -> lambda1^-1, swap lambda1<->lambda2 etc
-        max_scal = max_scal[[1, 0, 2]]
-        max_scal[1] -= max_scal[2]
+        max_scal = max_scal.extract([1, 0, 2], range(max_scal.shape[1]))
+        max_scal[1, :] -= max_scal[2, :]
 
         max_scal_ans = sympy.Matrix([[-1, 0, 0, -1, -1, 0, 1, 0, 0],
-                                    [0, 1, 1, 0, 1, 1, 0, 1, 0],
-                                    [0, -1, 0, 0, -1, 0, 0, 0, 1]])
+                                     [0, 1, 1, 0, 1, 1, 0, 1, 0],
+                                     [0, -1, 0, 0, -1, 0, 0, 0, 1]])
 
-        self.assertTrue(numpy.all(max_scal == max_scal_ans))
+        self.assertTrue(max_scal == max_scal_ans)
 
 
     def test_example_6_4_hub_lab(self):
@@ -196,12 +196,12 @@ class TestODESystemScaling(TestCase):
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(numpy.all(- max_scal == sympy.Matrix([[0, 1, -1]])))
+        self.assertTrue(- max_scal == sympy.Matrix([[0, 1, -1]]))
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
         hermite_multiplier_example = sympy.Matrix([[0, 1, 0],
-                                                  [1, 0, 1],
-                                                  [0, 0, 1]])
+                                                   [1, 0, 1],
+                                                   [0, 0, 1]])
 
         translation = ODETranslation(-max_scal, hermite_multiplier=hermite_multiplier_example)
 
@@ -242,12 +242,12 @@ class TestODESystemScaling(TestCase):
         max_scal = system.maximal_scaling_matrix()
         max_scal_ans = sympy.Matrix([[3, -1, 5]])
         # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(numpy.all(- max_scal == max_scal_ans))
+        self.assertTrue(- max_scal == max_scal_ans)
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
         hermite_multiplier_ans = sympy.Matrix([[1, 1, -1],
-                                                  [2, 3, 2],
-                                                  [0, 0, 1]])
+                                               [2, 3, 2],
+                                               [0, 0, 1]])
 
         translation = ODETranslation(max_scal_ans, hermite_multiplier=hermite_multiplier_ans)
 
@@ -292,14 +292,15 @@ class TestODESystemScaling(TestCase):
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         # Compare to the paper by swapping rows
-        self.assertTrue(numpy.all(max_scal[[1, 0]] == sympy.Matrix([[-1, 0, 1, 0],
-                                                                   [0, 1, 0, 1]])))
+        self.assertTrue(max_scal.extract([1, 0], range(max_scal.shape[1])) == sympy.Matrix([[-1, 0, 1, 0],
+                                                          [0, 1, 0, 1]]))
 
         herm_mult_paper = sympy.Matrix([[-1, 0, 1, 0],
                                        [0, 1, 0, -1],
                                        [0, 0, 1, 0],
                                        [0, 0, 0, 1]])
-        translator = ODETranslation(max_scal[[1, 0]], variables_domain=system.variables,
+        translator = ODETranslation(max_scal.extract([1, 0], range(max_scal.shape[1])),
+                                    variables_domain=system.variables,
                                     hermite_multiplier=herm_mult_paper)
         translated = translator.translate(system)
         answer = ODESystem.from_equations('dx0/dt = 0\ndx1/dt = 0\ndy0/dt = y0/t\ndy1/dt = y1*(-y0*y1 + y0)/t')
