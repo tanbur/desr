@@ -124,19 +124,30 @@ def hnf_row_lll(matrix_):
     [ 0, 0, 1]])
     >>> result[1] * matrix_ == result[0]
     True
+
+    >>> hnf_row_lll(sympy.Matrix([[0, -2, 0]]))
+    (Matrix([[0, 2, 0]]), Matrix([[-1]]))
     '''
     assert len(matrix_.shape) == 2
-    hnf, unimodular_matrix, rank = diophantine.lllhermite(matrix_, m1=1, n1=1)
+
+    # For some reason diophantine barfs if we only have one row. Work around this.
+    if matrix_.shape[0] == 1:
+        hnf = matrix_.copy()
+        unimodular_matrix = sympy.Matrix([[1]])
+        rank = 1 - int(hnf.is_zero)
+    else:
+        hnf, unimodular_matrix, rank = diophantine.lllhermite(matrix_, m1=1, n1=1)
+
     if not abs(unimodular_matrix.det()) == 1:
-        raise RuntimeError('Row operation matrix {} has determinant {}, not +-1'.format(unimodular_matrix, numpy.linalg.det(unimodular_matrix)))
+        raise RuntimeError('Row operation matrix {} has determinant {}, not +-1'.format(unimodular_matrix, unimodular_matrix.det()))
 
     # Rectify any negative entries in the HNF:
     for row_ind, row in enumerate(hnf.tolist()):
-        nonzero_ind = numpy.nonzero(row)[0]
+        nonzero_ind = [_ind for _ind, _val in enumerate(row) if _val != 0]
         if len(nonzero_ind):
             if row[nonzero_ind[0]] < 0:
-                hnf[row_ind] *= -1
-                unimodular_matrix[row_ind] *= -1
+                hnf[row_ind, :] *= -1
+                unimodular_matrix[row_ind, :] *= -1
 
     if not is_hnf_row(hnf):
         raise ValueError('{} not able to be put into row HNF. Output is:\n{}'.format(matrix_, hnf))
@@ -545,7 +556,7 @@ def smf(matrix_):
     [0, 10, 0],
     [0,  0, 0]])
     """
-    matrix_ = sympy.Matrix(matrix_)
+    matrix_ = matrix_.copy()
     transformed = matrix_.copy()
 
     if is_smf(transformed):
