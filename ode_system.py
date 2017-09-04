@@ -284,7 +284,13 @@ def rational_expr_to_power_matrix(expr, variables):
     return powers
 
 def maximal_scaling_matrix(exprs, variables=None):
-    ''' Determine the maximal scaling matrix leaving this system invariant
+    ''' Determine the maximal scaling matrix leaving this system invariant, in row Hermite normal form.
+
+    Args:
+        exprs (iter): Iterable of sympy.Expressions.
+        variables: An ordering on the variables. If None, sort according to the string representation.
+    Returns:
+        sympy.Matrix
 
     >>> exprs = ['z_1*z_3', 'z_1*z_2 / (z_3 ** 2)']
     >>> exprs = map(sympy.sympify, exprs)

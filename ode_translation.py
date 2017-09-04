@@ -53,6 +53,12 @@ class ODETranslation(object):
 
     @property
     def scaling_matrix(self):
+        """
+        The scaling matrix that this translation corresponds to.
+
+        Returns:
+            sympy.Matrix
+        """
         return self._scaling_matrix
 
     @property
