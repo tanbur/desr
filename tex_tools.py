@@ -8,7 +8,7 @@ import re
 import sympy
 from sympy.abc import _clash1
 
-VAR_RE = '[A-Za-z][\d_]*'
+VAR_RE = '[A-Za-z*][\d_]*'
 
 def matrix_to_tex(matrix_):
     '''
@@ -49,10 +49,10 @@ def var_to_tex(var):
     Returns:
         str
 
-    >>> print sympy.symbols('x y_1 Kw_3 z_{3}')
-    (x, y_1, Kw_3, z_{3})
+    >>> print map(var_to_tex, sympy.symbols('x y_1 Kw_3 z_{3} k_m1'))
+    ['x', 'y_{1}', 'Kw_{3}', 'z_{3}', 'k_{-1}}']
     """
-    return re.sub(VAR_RE, _var_repler, str(var).replace('_', ''))
+    return expr_to_tex(var)
 
 def expr_to_tex(expr):
     """
@@ -64,11 +64,11 @@ def expr_to_tex(expr):
         str
 
     >>> print map(expr_to_tex, map(sympy.sympify, ['(x + y - 1.5)**2', '(x + y_m1)**1',]))
-    ['(x+y-1.5)2', 'x+y_{}m_{1}']
+    ['\\\\left(x + y - 1.5\\\\right)^{2}', 'x + y_{-1}']
     """
-    expr = str(expr).replace(' ', '').replace('**1.0', '')
-
-    tex = re.sub(VAR_RE, _var_repler, expr).replace('*', '')
+    tex = sympy.latex(expr)
+    # Substitute _{m...} for _{-...}
+    tex = re.sub(r'_\{?m(.+)\}?', r'_{-\1}', tex)
     return tex
 
 def eqn_to_tex(eqn):
@@ -97,7 +97,7 @@ def tex_to_sympy(tex):
         list
 
     >>> sym = tex_to_sympy(r'\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\
-    ... \frac{dS}{dt} &= - k_1 E S + k_{-1} C \\
+    ...   \frac{dS}{dt} &= - k_1 E S + k_{-1} C \\
     ... \frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\
     ... \frac{dP}{dt} &= k_2 C')
     >>> for s in sym: print s
