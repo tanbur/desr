@@ -295,12 +295,12 @@ def maximal_scaling_matrix(exprs, variables=None):
     >>> exprs = ['z_1*z_3', 'z_1*z_2 / (z_3 ** 2)']
     >>> exprs = map(sympy.sympify, exprs)
     >>> maximal_scaling_matrix(exprs)
-    Matrix([[-1, 3, 1]])
+    Matrix([[1, -3, -1]])
 
     >>> exprs = ['(z_1 + z_2**2) / z_3']
     >>> exprs = map(sympy.sympify, exprs)
     >>> maximal_scaling_matrix(exprs)
-    Matrix([[-2, -1, -2]])
+    Matrix([[2, 1, 2]])
     '''
     if variables is None:
         variables = sorted(expressions_to_variables(exprs), key=str)
@@ -321,7 +321,8 @@ def maximal_scaling_matrix(exprs, variables=None):
     # Make sure we have the right number of columns
     assert multiplier_rform.shape[1] == len(variables)
     # Return the last num_nonzero rows of the Hermite multiplier
-    return multiplier_rform[-num_nonzero:, :]
+    return hnf_row(multiplier_rform[-num_nonzero:, :])[0]
+
 
 if __name__ == '__main__':
     import doctest

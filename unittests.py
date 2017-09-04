@@ -2,7 +2,7 @@ import itertools
 import sympy
 from unittest import TestCase, main
 
-from hermite_helper import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col
+from hermite_helper import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col, hnf_row
 from ode_system import ODESystem
 from ode_translation import ODETranslation
 from chemical_reaction_network import ChemicalReactionNetwork, ChemicalSpecies, Complex, Reaction
@@ -167,16 +167,17 @@ class TestODESystemScaling(TestCase):
         max_scal = system.maximal_scaling_matrix()
         self.assertEqual(max_scal.shape, (3, 9))
 
-        # Now do a couple of row ops so we get exactly the same matrix. This amount to changing the scalar
-        # operations lambda1 -> lambda1^-1, swap lambda1<->lambda2 etc
-        max_scal = max_scal.extract([1, 0, 2], range(max_scal.shape[1]))
-        max_scal[1, :] -= max_scal[2, :]
+        # # Now do a couple of row ops so we get exactly the same matrix. This amount to changing the scalar
+        # # operations lambda1 -> lambda1^-1, swap lambda1<->lambda2 etc
+        # max_scal = max_scal.extract([1, 0, 2], range(max_scal.shape[1]))
+        # max_scal[1, :] -= max_scal[2, :]
 
         max_scal_ans = sympy.Matrix([[-1, 0, 0, -1, -1, 0, 1, 0, 0],
                                      [0, 1, 1, 0, 1, 1, 0, 1, 0],
                                      [0, -1, 0, 0, -1, 0, 0, 0, 1]])
 
-        self.assertTrue(max_scal == max_scal_ans)
+        # Compare row HNFs
+        self.assertEqual(max_scal, hnf_row(max_scal_ans)[0])
 
 
     def test_example_6_4_hub_lab(self):
@@ -193,15 +194,14 @@ class TestODESystemScaling(TestCase):
         ## Check against the answer in the paper
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
-        # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(- max_scal == sympy.Matrix([[0, 1, -1]]))
+        self.assertTrue(max_scal == sympy.Matrix([[0, 1, -1]]))
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
         hermite_multiplier_example = sympy.Matrix([[0, 1, 0],
                                                    [1, 0, 1],
                                                    [0, 0, 1]])
 
-        translation = ODETranslation(-max_scal, hermite_multiplier=hermite_multiplier_example)
+        translation = ODETranslation(max_scal, hermite_multiplier=hermite_multiplier_example)
 
         translated = translation.translate_dep_var(system)
         answer = ODESystem.from_equations('dx0/dt = x0*(y0 + 1)\ndy0/dt = y0*(1 + 1/t)')
@@ -222,7 +222,7 @@ class TestODESystemScaling(TestCase):
         ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate_dep_var(system)
-        answer = ODESystem.from_equations('dx0/dt = x0*(-y0 + 1/t)\ndy0/dt = y0*(1 + 1/t)')
+        answer = ODESystem.from_equations('dx0/dt = x0*(y0 - 1/t)\ndy0/dt = y0*(1 + 1/t)')
         self.assertEqual(translated, answer)
 
     def test_example_6_6_hub_lab(self):
@@ -239,8 +239,7 @@ class TestODESystemScaling(TestCase):
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
         max_scal_ans = sympy.Matrix([[3, -1, 5]])
-        # Multiply by -1 (a trivial row operation) so that answers match.
-        self.assertTrue(- max_scal == max_scal_ans)
+        self.assertEqual(max_scal, max_scal_ans)
 
         # Give Hermite multiplier from the paper. Padd it with a row and column for t to work with current infrastructure
         hermite_multiplier_ans = sympy.Matrix([[1, 1, -1],
@@ -273,7 +272,7 @@ class TestODESystemScaling(TestCase):
         ## Check our answer hasn't changed, using our own Hermite multiplier
         translation = ODETranslation.from_ode_system(system)
         translated = translation.translate(system)
-        answer = ODESystem.from_equations('dx0/dt = x0*(y1/3 - 2/3)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')
+        answer = ODESystem.from_equations('dx0/dt = x0*(2*y1/3 + 2/3 + y1/y0)/t\ndy0/dt = y0*(y1 - 1)/t\ndy1/dt = y1*(5*y1/3 - 10/3 + (2*y0*(-y1 + 5)/3 + y1)/y0)/t')
         self.assertEqual(translated, answer)
 
 
@@ -289,15 +288,15 @@ class TestODESystemScaling(TestCase):
         ## Check against the answer in the paper
         # Match the maximal scaling matrix
         max_scal = system.maximal_scaling_matrix()
-        # Compare to the paper by swapping rows
-        self.assertTrue(max_scal.extract([1, 0], range(max_scal.shape[1])) == sympy.Matrix([[-1, 0, 1, 0],
-                                                          [0, 1, 0, 1]]))
+        # Compare to the paper by performing one row operation
+        max_scal[0, :] *= -1
+        self.assertEqual(max_scal, sympy.Matrix([[-1, 0, 1, 0], [0, 1, 0, 1]]))
 
         herm_mult_paper = sympy.Matrix([[-1, 0, 1, 0],
                                        [0, 1, 0, -1],
                                        [0, 0, 1, 0],
                                        [0, 0, 0, 1]])
-        translator = ODETranslation(max_scal.extract([1, 0], range(max_scal.shape[1])),
+        translator = ODETranslation(max_scal,
                                     variables_domain=system.variables,
                                     hermite_multiplier=herm_mult_paper)
         translated = translator.translate(system)
@@ -321,7 +320,7 @@ class TestODESystemScaling(TestCase):
         translated = translator.translate(system)
         self.assertEqual(translated, answer)
         general_soln = translator.reverse_translate_general(reduced_solutions, system_indep_var_index=0)
-        saved_soln = tuple(map(sympy.sympify, ['c1/(c*exp(-t*c2) + 1)', 'c2', 'c1']))  # Just a cached value
+        saved_soln = tuple(map(sympy.sympify, ['c2/(c*exp(-t/c1) + 1)', '1/c1', 'c2']))  # Just a cached value
         self.assertTupleEqual(general_soln, saved_soln)
 
     def test_example_pred_prey_choosing_invariants(self):

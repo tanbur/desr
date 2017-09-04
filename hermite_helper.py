@@ -123,6 +123,12 @@ def hnf_row_lll(matrix_):
 
     >>> hnf_row_lll(sympy.Matrix([[0, -2, 0]]))
     (Matrix([[0, 2, 0]]), Matrix([[-1]]))
+
+    >>> matrix_ = sympy.Matrix([[0, 1, 0, 1], [-1, 0, 1, 0]])
+    >>> hnf_row_lll(matrix_)[0]
+    Matrix([
+    [1, 0, -1, 0],
+    [0, 1,  0, 1]])
     '''
     assert len(matrix_.shape) == 2
 
