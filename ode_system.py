@@ -5,7 +5,7 @@ import sympy
 
 from hermite_helper import hnf_col, hnf_row, normal_hnf_col
 from sympy_helper import expressions_to_variables, unique_array_stable, monomial_to_powers
-from tex_tools import expr_to_tex, var_to_tex
+from tex_tools import expr_to_tex, var_to_tex, tex_to_sympy
 
 class ODESystem(object):
     ''' A class which represents a system of differential equations '''
@@ -95,6 +95,7 @@ class ODESystem(object):
     @classmethod
     def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
         ''' Instantiate from a text of equations '''
+        # Make a tuple of all variables.
         variables = set(expressions_to_variables(deriv_dict.values())).union(set(deriv_dict.keys()))
         variables = tuple(variables.union(set([indep_var])))
 
@@ -116,6 +117,48 @@ class ODESystem(object):
         lines = [line_template.format(var_to_tex(var), var_to_tex(self.indep_var), expr_to_tex(expr))
                  for var, expr in zip(self.variables, self.derivatives)]
         return ' \\\\\n'.join(lines)
+
+    @classmethod
+    def from_tex(cls, tex):
+        """
+        Given the latex of a system of differential equations, return a ODESystem of it.
+
+        Args:
+            tex (str): LaTeX
+
+        Returns:
+             ODESystem
+
+        >>> ODESystem.from_tex(r'\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\
+        ... \frac{dS}{dt} &= - k_1 E S + k_{-1} C \\
+        ... \frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\
+        ... \frac{dP}{dt} &= k_2 C')
+        dt/dt = 1
+        dC/dt = -C*k_2 - C*k_m1 + E*S*k_1
+        dE/dt = C*k_2 + C*k_m1 - E*S*k_1
+        dP/dt = C*k_2
+        dS/dt = C*k_m1 - E*S*k_1
+        dk_1/dt = 0
+        dk_2/dt = 0
+        dk_m1/dt = 0
+        """
+        sympification = tex_to_sympy(tex)
+        derivative_dict = {}
+        indep_var = None
+        for sympy_eq in sympification:
+            if not isinstance(sympy_eq.lhs, sympy.Derivative):
+                raise ValueError('Invalid sympy equation: {}'.format(sympy_eq))
+            derivative_dict[sympy_eq.lhs.args[0]] = sympy_eq.rhs
+
+            # Check we always have the same independent variable.
+            if indep_var is None:
+                indep_var = sympy_eq.lhs.args[1]
+            else:
+                if indep_var != sympy_eq.lhs.args[1]:
+                    raise ValueError('Must be ordinary differential equation. Two indep variables {} and {} found.'.format(indep_var, sympy_eq.lhs.args[1]))
+
+        return cls.from_dict(deriv_dict=derivative_dict)
+
 
     def _power_matrix(self):
         ''' Determine the 'power' matrix of the system, by gluing together the power matrices of each derivative
