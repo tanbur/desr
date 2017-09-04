@@ -63,12 +63,12 @@ def expr_to_tex(expr):
     Returns:
         str
 
-    >>> print map(expr_to_tex, map(sympy.sympify, ['(x + y - 1.5)**2', '(x + y_m1)**1',]))
-    ['\\\\left(x + y - 1.5\\\\right)^{2}', 'x + y_{-1}']
+    >>> print map(expr_to_tex, map(sympy.sympify, ['(x + y - 1.5)**2', '(x + y_m1)**1', 'k_m1*t']))
+    ['\\\\left(x + y - 1.5\\\\right)^{2}', 'x + y_{-1}', 'k_{-1} t']
     """
     tex = sympy.latex(expr)
     # Substitute _{m...} for _{-...}
-    tex = re.sub(r'_\{?m(.+)\}?', r'_{-\1}', tex)
+    tex = re.sub(r'\_\{?m([^\}]+)\}?', r'_{-\1}', tex)
     return tex
 
 def eqn_to_tex(eqn):
