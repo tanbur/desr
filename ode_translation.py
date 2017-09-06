@@ -132,7 +132,9 @@ class ODETranslation(object):
 
     def translate(self, system):
         ''' Translate, depending on whether the scaling matrix acts on time or not '''
-        if ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
+        if self._is_translate_parameter_compatible(system=system):
+            return self.translate_parameter(system=system)
+        elif ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
             (self.scaling_matrix[:, system.indep_var_index].is_zero)):
             return self.translate_dep_var(system=system)
         elif (len(system.variables) == self.scaling_matrix.shape[1]):
@@ -246,6 +248,7 @@ class ODETranslation(object):
                 return False
 
         # Now check our transformation is valid
+        # m is number of non-constant variables (including independent variable)
         m = len(system.variables) - system.num_constants
         if not self.herm_mult_i[:m, :].is_zero:
             return False
@@ -254,7 +257,7 @@ class ODETranslation(object):
         if not self.herm_mult_n[:m, m:].is_zero:
             return False
 
-        if not (self.inv_herm_mult[self.r:self.r + m] ==
+        if not (self.inv_herm_mult[self.r:self.r + m, :] ==
                 sympy.Matrix.hstack(sympy.eye(m), sympy.zeros(m, system.num_constants))):
             return False
 
@@ -269,13 +272,13 @@ class ODETranslation(object):
             err_str = ['System is not compatible for parameter translation.']
             err_str.append('System may not be ordered properly. Must be independent, dependent, constants. Order is: {}'.format(system.variables))
             err_str.append('Transformation may not be appropriate. Should be 0, I, 0. Transformation is:')
-            err_str.append(repr(self.herm_mult_i[:m]))
+            err_str.append(repr(self.herm_mult_i[:m, :]))
             err_str.append(repr(self.herm_mult_n[:m, :m]))
             err_str.append(repr(self.herm_mult_n[:m, m:]))
             raise ValueError('\n'.join(err_str))
 
         # Extract the right bits of W
-        inv_herm_mult_d = self.inv_herm_mult_d[m:]
+        inv_herm_mult_d = self.inv_herm_mult_d[m:, :]
         W_t = inv_herm_mult_d[:, :1]
         W_v = inv_herm_mult_d[:, 1:m]
         W_c = inv_herm_mult_d[:, m:]
@@ -311,13 +314,13 @@ class ODETranslation(object):
             err_str = ['System is not compatible for parameter translation.']
             err_str.append('System may not be ordered properly. Must be independent, dependent, constants. Order is: {}'.format(system.variables))
             err_str.append('Transformation may not be appropriate. Should be 0, I, 0. Transformation is:')
-            err_str.append(repr(self.herm_mult_i[:m]))
+            err_str.append(repr(self.herm_mult_i[:m, :]))
             err_str.append(repr(self.herm_mult_n[:m, :m]))
             err_str.append(repr(self.herm_mult_n[:m, m:]))
             raise ValueError('\n'.join(err_str))
 
         # Extract the right bits of W
-        herm_mult_n = self.herm_mult_n[m:]
+        herm_mult_n = self.herm_mult_n[m:, :]
         V_t = herm_mult_n[:, :1]
         V_v = herm_mult_n[:, 1:m]
         V_c = herm_mult_n[:, m:]
