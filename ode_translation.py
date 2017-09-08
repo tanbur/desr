@@ -48,7 +48,12 @@ class ODETranslation(object):
                                                self.inv_herm_mult.__repr__())
 
     def to_tex(self):
-        ''' Tex goodness '''
+        '''
+        The system represented in lovely Tex.
+
+        Returns:
+            str
+        '''
         to_print = (self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
         to_print = map(matrix_to_tex, to_print)
         return 'A=\n{}\nV=\n{}\n\nW={}'.format(*to_print)
@@ -65,51 +70,101 @@ class ODETranslation(object):
 
     @property
     def r(self):
+        '''
+        The dimension of the scaling action
+
+        Returns:
+            int
+        '''
         return self._scaling_matrix.shape[0]
 
     @property
     def n(self):
+        '''
+        The number of original variables that the scaling action is acting on.
+        Returns:
+            int
+        '''
         return self._scaling_matrix.shape[1]
 
     @property
     def herm_mult(self):
-        ''' Better known in Hubert Labahn as V '''
+        '''
+        Better known in Hubert Labahn as V
+
+        Returns:
+            sympy.Matrix
+        '''
         return self._herm_mult.copy()
 
     @property
     def herm_form(self):
-        ''' Return the Hermite normal form '''
+        '''
+        The Hermite normal form of the scaling matrix.
+
+        Returns:
+            sympy.Matrix
+        '''
         return self._scaling_matrix_hnf.copy()
 
     @property
     def herm_mult_i(self):
-        ''' The first component of the Hermite multiplier V = Vi '''
+        '''
+        The first r columns of V: Vi
+
+        Returns:
+            sympy.Matrix
+        '''
         return self.herm_mult[:, :self.r]
 
     @property
     def herm_mult_n(self):
-        ''' The second component of the Hermite multiplier V = Vn '''
+        '''
+        The last n-r columns of the Hermite multiplier V = Vn, which represent the invariants of the scaling action.
+        Returns:
+            sympy.Matrix
+        '''
         return self.herm_mult[:, self.r:]
 
 
     @property
     def inv_herm_mult(self):
-        ''' Better known in Hubert Labahn as W '''
+        '''
+        The inverse of the Hermite multiplier. Better known in Hubert Labahn as W
+        Returns:
+            sympy.Matrix
+        '''
         return self._inv_herm_mult.copy()
 
     @property
     def inv_herm_mult_u(self):
-        ''' The first component of W = Wu '''
+        '''
+        The first r rows of W: Wu
+        Returns:
+            sympy.Matrix
+        '''
         return self.inv_herm_mult[:self.r, :]
 
     @property
     def inv_herm_mult_d(self):
-        ''' The second component W = Wd '''
+        """
+        The last n-r rows of W: Wd
+        Returns:
+            sympy.Matrix
+        """
         return self.inv_herm_mult[self.r:, :]
 
     @property
     def dep_var_herm_mult(self, indep_var_index=0):
-        ''' Return the Hermite multiplier, ignoring the independent variable '''
+        '''
+        Return the Hermite multiplier V, ignoring the independent variable.
+
+        Args:
+            indep_var_index (int): The index of the independent variable.
+
+        Returns:
+            sympy.Matrix
+        '''
         new_herm_mult = self.herm_mult.copy()
         col_to_delete = new_herm_mult[indep_var_index, :]
         new_herm_mult.row_del(indep_var_index)
@@ -120,20 +175,41 @@ class ODETranslation(object):
 
     @property
     def dep_var_inv_herm_mult(self):
-        ''' Return the inverse Hermite multiplier, ignoring the independent variable '''
+        '''
+        Return the inverse Hermite multiplier, ignoring the independent variable.
+        Returns:
+            sympy.Matrix
+        '''
         return _int_inv(self.dep_var_herm_mult)
 
     @property
     def variables_domain(self):
+        '''
+        The variables that the scaling action acts on.
+        Returns:
+            tuple, None
+        '''
         return self._variables_domain
 
     @classmethod
     def from_ode_system(cls, ode_system):
-        ''' Create a translation given an ODESystem '''
+        '''
+        Create an ODETranslation given an ODESystem instance, by taking the maximal scaling matrix.
+        Returns:
+            ODETranslation
+        '''
         return cls(scaling_matrix=ode_system.maximal_scaling_matrix(), variables_domain=ode_system.variables)
 
     def translate(self, system):
-        ''' Translate, depending on whether the scaling matrix acts on time or not '''
+        '''
+        Translate into a reduced system. First, try the simplest parameter reduction method, then the dependent variable translation (where the scaling action ignores the independent variable) and finally the general reduction scheme.
+
+        Args:
+            system (ODESystem): System to reduce.
+
+        Returns:
+            ODESystem
+        '''
         if self._is_translate_parameter_compatible(system=system):
             return self.translate_parameter(system=system)
         elif ((len(system.variables) == self.scaling_matrix.shape[1] + 1) or
