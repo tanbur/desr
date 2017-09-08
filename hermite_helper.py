@@ -35,12 +35,14 @@ def get_pivot_row_indices(matrix_):
     return indices
 
 def is_hnf_col(matrix_):
-    ''' Decide whether a matrix is in row Hermite normal form, when acting on rows.
-        Args:
-            matrix_ (sympy.Matrix): The matrix in question.
+    '''
+    Decide whether a matrix is in row Hermite normal form, when acting on rows.
 
-        Returns:
-            bool
+    Args:
+        matrix_ (sympy.Matrix): The matrix in question.
+
+    Returns:
+        bool
     '''
     return is_hnf_row(matrix_.T)
 
@@ -94,15 +96,18 @@ def is_hnf_row(matrix_):
 
 def hnf_row_lll(matrix_):
     '''
-    Compute the Hermite normal form, ACTS ON THE ROWS OF A MATRIX
-    The Havas, Majewski, Matthews LLL method is used
-    We usually take alpha=m1/n1, with (m1,n1)=(1,1) to get best results
+    Compute the Hermite normal form, acts on the ROWS of a matrix.
+    The Havas, Majewski, Matthews LLL method is used.
+    We usually take :math:`\\alpha = \\frac{m_1}{n_1}`, with :math:`(m_1,n_1)=(1,1)` to get best results.
 
     Args:
         matrix_ (sympy.Matrix): Integer mxn matrix, nonzero, at least two rows
 
     Returns:
-        (sympy.Matrix, sympy.Matrix): small unimodular matrix B and HNF(A), such that BA=HNF(A)
+        tuple:
+            hnf (sympy.Matrix): The row Hermite normal form of matrix_.
+            unimod (sympy.Matrix): Unimodular matrix representing the row actions.
+
 
     >>> matrix_ = sympy.Matrix([[2, 0],
     ...                         [3, 3],
@@ -159,15 +164,17 @@ def hnf_row_lll(matrix_):
 
 def hnf_col_lll(matrix_):
     '''
-    Compute the Hermite normal form, ACTS ON THE COLUMNS OF A MATRIX
-    The Havas, Majewski, Matthews LLL method is used
-    We usually take alpha=m1/n1, with (m1,n1)=(1,1) to get best results
+    Compute the Hermite normal form, acts on the COLUMNS of a matrix.
+    The Havas, Majewski, Matthews LLL method is used.
+    We usually take :math:`\\alpha = \\frac{m_1}{n_1}`, with :math:`(m_1,n_1)=(1,1)` to get best results.
 
     Args:
         matrix_ (sympy.Matrix): Integer mxn matrix, nonzero, at least two rows
 
     Returns:
-        (sympy.Matrix, sympy.Matrix): small unimodular matrix B and HNF(A), such that BA=HNF(A)
+        tuple:
+            hnf (sympy.Matrix): The column Hermite normal form of matrix_.
+            unimod (sympy.Matrix): Unimodular matrix representing the column actions.
 
     >>> A = sympy.Matrix([[8, 2, 15, 9, 11],
     ...                   [6, 0, 6, 2, 3]])
@@ -232,7 +239,15 @@ def is_normal_hermite_multiplier(hermite_multiplier, matrix_):
 
 def normal_hnf_col(matrix_):
     '''
-    Return the hnf and the unique normal Hermite multiplier
+    Return the column HNF and the unique normal Hermite multiplier.
+
+    Args:
+        matrix_ (sympy.Matrix): Input matrix.
+
+    Returns:
+        tuple: Tuple containing:
+            hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix_.
+            normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
 
     >>> A = sympy.Matrix([[8, 2, 15, 9, 11],
     ...                   [6, 0, 6, 2, 3]])
@@ -253,35 +268,70 @@ def normal_hnf_col(matrix_):
     '''
     r, n = matrix_.shape
     out, _ = hnf_col_lll(sympy.Matrix.vstack(matrix_, sympy.eye(n)))
-    h, v = out[:r, :], out[r:, :]
-    assert (matrix_ * v) == h
-    return h, v
+    hermite_normal_form, normal_multiplier = out[:r, :], out[r:, :]
+    assert (matrix_ * normal_multiplier) == hermite_normal_form
+    return hermite_normal_form, normal_multiplier
 
 def normal_hnf_row(matrix_):
-    ''' Row version of the normal hnf multiplier '''
-    h, v = normal_hnf_col(matrix_=matrix_.T)
-    return h.T, v.T
+    '''
+    Return the row HNF and the unique normal Hermite multiplier.
+
+    Args:
+        matrix_ (sympy.Matrix): Input matrix.
+
+    Returns:
+        tuple: Tuple containing:
+
+            hermite_normal_form (sympy.Matrix): The row Hermite normal form of matrix_.
+            normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
+    '''
+    hermite_normal_form, normal_multiplier = normal_hnf_col(matrix_=matrix_.T)
+    return hermite_normal_form.T, normal_multiplier.T
 
 ## Set defaults
 hnf_row = hnf_row_lll
+"""
+Default function for calculating row Hermite normal forms.
+
+Args:
+    matrix_ (sympy.Matrix): Input matrix.
+
+Returns:
+    tuple: Tuple containing:
+        hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix\\_.
+        normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
+"""
+
 hnf_col = hnf_col_lll
+"""
+Default function for calculating column Hermite normal forms.
+
+Args:
+    matrix_ (sympy.Matrix): Input matrix.
+
+Returns:
+    tuple: Tuple containing:
+        hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix_.
+        normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
+"""
 
 ## Smith normal form
 
 def expand_matrix(matrix_):
     """
-        Given a rectangular $n \times m$ integer matrix, return an $n+1 \times m+1$ matrix where the extra row and
-        column are 0 except on the first entry which is 1.
+    Given a rectangular :math:`n \\times m` integer matrix, return an :math:`(n+1) \\times (m+1)` matrix where the extra row and
+    column are 0 except on the first entry which is 1.
 
-        Parameters
-        ----------
-        matrix_ : sympy.Matrix
-            The rectangular matrix to be expanded
+    Parameters
+    ----------
+    matrix_ : sympy.Matrix
+        The rectangular matrix to be expanded
 
-        Returns
-        -------
-        sympy.Matrix
-            An $n+1 \times m+1$ matrix
+    Returns
+    -------
+    sympy.Matrix
+        An :math:`(n+1) \\times (m+1)` matrix
+
 
     >>> matrix_ = sympy.diag(*[1, 1, 2])
     >>> expand_matrix(matrix_)
@@ -403,7 +453,7 @@ def _swap_ij_cols(matrices, i, j):
 
 def element_wise_lt(matrix_, other):
     """
-    Given a rectangular $n \times m$ integer matrix, return a matrix of bools with (i, j)th entry equal to
+    Given a rectangular :math:`n \\times m` integer matrix, return a matrix of bools with (i, j)th entry equal to
     matrix_[i,j] < other or other[i,j], depending on the type of other.
 
     Parameters
@@ -416,7 +466,8 @@ def element_wise_lt(matrix_, other):
     Returns
     -------
     sympy.Matrix
-        $n \times m$ Boolean matrix
+        :math:`n \\times m` Boolean matrix
+
 
     >>> x = sympy.eye(2) * 3
     >>> element_wise_lt(x, 2)
@@ -437,17 +488,18 @@ def element_wise_lt(matrix_, other):
 
 def is_smf(matrix_):
     """
-        Given a rectangular $n \times m$ integer matrix, determine whether it is in Smith normal form or not.
+    Given a rectangular :math:`n \\times m` integer matrix, determine whether it is in Smith normal form or not.
 
-        Parameters
-        ----------
-        matrix_ : sympy.Matrix
-            The rectangular matrix to be decomposed
+    Parameters
+    ----------
+    matrix_ : sympy.Matrix
+        The rectangular matrix to be decomposed
 
-        Returns
-        -------
-        bool
-            True if in Smith normal form, False otherwise.
+    Returns
+    -------
+    bool
+        True if in Smith normal form, False otherwise.
+
 
     >>> matrix_ = sympy.diag(1, 1, 2)
     >>> is_smf(matrix_)
@@ -474,7 +526,8 @@ def is_smf(matrix_):
     >>> is_smf(sympy.diag(0)), is_smf(sympy.diag(1)), is_smf(sympy.Matrix()),
     (True, True, True)
 
-    Check a real example
+    Check a real example:
+
     >>> matrix_ = sympy.Matrix([[2, 4, 4],
     ...                         [-6, 6, 12],
     ...                         [10, -4, -16]])
@@ -485,7 +538,8 @@ def is_smf(matrix_):
     >>> is_smf(matrix_)
     True
 
-    Check it works for non-square matrices
+    Check it works for non-square matrices:
+
     >>> matrix_ = sympy.Matrix(4, 5, range(20))
     >>> is_smf(matrix_)
     False
@@ -521,8 +575,8 @@ def is_smf(matrix_):
 
 def smf(matrix_):
     """
-    Given a rectangular $n \times m$ integer matrix, calculate the Smith Normal Form $S$ and multipliers $U$, $V$ such
-    that $U matrix_ V = S$.
+    Given a rectangular :math:`n \\times m` integer matrix, calculate the Smith Normal Form :math:`S` and multipliers :math:`U`, :math:`V` such
+    that :math:`U \\textrm{matrix_} V = S`.
 
     Parameters
     ----------
@@ -531,9 +585,11 @@ def smf(matrix_):
 
     Returns
     -------
-    :rtype: (sympy.Matrix, sympy.Matrix, sympy.Matrix)
-        The Smith normal form of matrix_, $U$ (the matrix representing the row operations of the decomposition),
-        $V$ (the matrix representing the column operations of the decomposition).
+    tuple:
+        S (sympy.Matrix): The Smith normal form of matrix_.
+        U (sympy.Matrix): :math:`U` (the matrix representing the row operations of the decomposition).
+        V (sympy.Matrix): :math:`V` (the matrix representing the column operations of the decomposition).
+
 
     >>> matrix_ = sympy.Matrix([[2, 4, 4],
     ...                         [-6, 6, 12],
