@@ -43,7 +43,9 @@ class ODETranslation(object):
         self._inv_herm_mult = _int_inv(self._herm_mult)
 
     def __repr__(self):
-        return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
+        return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix.__repr__(),
+                                               self.herm_mult.__repr__(),
+                                               self.inv_herm_mult.__repr__())
 
     def to_tex(self):
         ''' Tex goodness '''
