@@ -317,7 +317,7 @@ class TestODESystemScaling(TestCase):
         ## Now do it with our own Hermite multiplier, except we need the variables in a different order
         system.reorder_variables('tnrk')
         translator = ODETranslation.from_ode_system(system)
-        translated = translator.translate(system)
+        translated = translator.translate_general(system)
         self.assertEqual(translated, answer)
         general_soln = translator.reverse_translate_general(reduced_solutions, system_indep_var_index=0)
         saved_soln = tuple(map(sympy.sympify, ['c2/(c*exp(-t/c1) + 1)', '1/c1', 'c2']))  # Just a cached value
