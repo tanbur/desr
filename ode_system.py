@@ -48,6 +48,15 @@ class ODESystem(object):
 
         return True
 
+    def copy(self):
+        '''
+        Return a copy of the ODESystem.
+
+        Returns:
+            ODESystem
+        '''
+        return ODESystem(self._variables, self._derivatives, indep_var=self._indep_var)
+
     @property
     def indep_var(self):
         return self._indep_var
