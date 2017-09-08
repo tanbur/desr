@@ -1,13 +1,7 @@
-import numpy
-from numpy.distutils.system_info import system_info
 
 import sympy
-from pip import __main__
-from sympy.matrices import Matrix
-from hermite_helper import normal_hnf_col, INT_TYPE_DEF
-import sympy
-from ode_system import ODESystem
-from ode_translation import ODETranslation, scale_action
+from desr.ode_system import ODESystem
+from desr.ode_translation import ODETranslation, scale_action
 
 
 def example_two_step_phosphorelay():
@@ -40,7 +34,7 @@ def example_two_step_phosphorelay():
 
     eq_const = sum([deriv_dict[v] for v in [Xs1, X1, Xs2, X2, Y1, Y2, Y3]])
     km5, km6 = sympy.var('km5 km6')
-    assert eq_const.expand() == Y3*km5 - Y3 * km6
+    assert eq_const.expand() == Y3 * km5 - Y3 * km6
     import warnings
     warnings.warn('{}  =>  km5 = km6'.format(eq_const.expand()))
     for key in deriv_dict.keys():
