@@ -7,7 +7,7 @@ from ode_system import ODESystem
 from sympy_helper import unique_array_stable
 
 class ChemicalSpecies(object):
-    ''' Chemical species, A_i from Harrington paper '''
+    ''' Chemical species, A_i from Harrington paper. Typically represents a single chemical element. '''
     def __init__(self, id_):
         self.id_ = id_
 
@@ -27,7 +27,9 @@ class ChemicalSpecies(object):
         return str(self.id_)
 
 class Complex(MutableMapping):
-    ''' A complex of ChemicalSpecies '''
+    ''' A complex of ChemicalSpecies.
+        Represented as a dictionary where the keys are chemical species and the value represents its coefficient in the complex.
+    '''
     def __init__(self, *args, **kwargs):
         self._species_dict = dict(*args, **kwargs)
         for key in self._species_dict:
@@ -58,8 +60,13 @@ class Complex(MutableMapping):
         return tuple([self._species_dict.get(variable, 0) for variable in variable_order])
 
 class Reaction(object):
-    ''' Represents a reaction between complexes '''
+    ''' Represents a reaction between complexes, from complex1 to complex2 '''
     def __init__(self, complex1, complex2):
+        """
+        Args:
+            complex1 (Complex)
+            complex2 (Complex)
+        """
         self.complex1 = complex1
         self.complex2 = complex2
 
@@ -67,7 +74,7 @@ class Reaction(object):
         return '{} -> {}'.format(self.complex1, self.complex2)
 
 class ChemicalReactionNetwork(object):
-    ''' Chemical reaction network '''
+    ''' Chemical reaction network, made up of Species, Complexes and Reactions. '''
     def __init__(self, chemical_species, complexes, reactions):
         assert all([isinstance(c_s, ChemicalSpecies) for c_s in chemical_species])
 
@@ -87,18 +94,42 @@ class ChemicalReactionNetwork(object):
 
     @property
     def p(self):
+        """
+        The number of complexes in the network.
+
+        Returns:
+            int
+        """
         return len(self.complexes)
 
     @property
     def n(self):
+        """
+        The number of chemical species in the network.
+
+        Returns:
+             int
+        """
         return len(self.chemical_species)
 
     @property
     def r(self):
+        """
+        The number of different chemical reactions in the network.
+
+        Returns:
+             int
+        """
         return len(self.reactions)
 
     def ode_equations(self):
-        ''' Return a tuple of differential equations for each species '''
+        '''
+        Return a tuple of differential equations for each species.
+
+        Returns:
+            tuple:
+                A differential equation, represented by a sympy.Expression, for the dynamics of each species.
+        '''
         sympy_chem_spec = map(lambda x: sympy.var(str(x)), self.chemical_species)
 
         rate_reaction_function = []
@@ -130,7 +161,12 @@ class ChemicalReactionNetwork(object):
         return tuple(equations)
 
     def to_ode_system(self):
-        ''' Generate a system of ODEs based on the current network '''
+        '''
+        Generate a system of ODEs based on the current network.
+
+        Returns:
+            ODESystem: A system describing the current network.
+        '''
         sympy_chem_spec = map(lambda x: sympy.var(str(x)), self.chemical_species)
         equations = self.ode_equations()
         deriv_dict = dict(zip(sympy_chem_spec, equations))
@@ -141,7 +177,20 @@ class ChemicalReactionNetwork(object):
 
     @classmethod
     def from_diagram(cls, diagram):
-        ''' Given a text diagram, return an interpreted chemical reaction network '''
+        '''
+        Given a text diagram, return an interpreted chemical reaction network.
+
+
+        >>> ChemicalReactionNetwork.from_diagram('x + y -> z \\n y + z -> 2*z')
+        1.y + 1.x -> 1.z
+        1.y + 1.z -> 2.z
+
+        We can add reversible reactions like so:
+
+        >>> ChemicalReactionNetwork.from_diagram('x + y -> z \\n z -> x + y')
+        1.y + 1.x -> 1.z
+        1.z -> 1.y + 1.x
+        '''
         species = []
         complexes = []
         reactions = []
@@ -179,8 +228,6 @@ class ChemicalReactionNetwork(object):
 
         species = unique_array_stable(species)
         return cls(species, complexes, reactions)
-
-
 
 if __name__ == '__main__':
     import doctest
