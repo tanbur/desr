@@ -662,17 +662,17 @@ def scale_action(vect, scaling_matrix):
 
 def extend_rectangular_matrix(matrix_, check_unimodular=True):
     """
-        Given a rectangular $n \times m$ integer matrix, extend it to a unimodular one by appending columns.
+    Given a rectangular $n \times m$ integer matrix, extend it to a unimodular one by appending columns.
 
-        Parameters
-        ----------
-        matrix_
-            The rectangular matrix to be extended.
+    Parameters
+    ----------
+    matrix_
+        The rectangular matrix to be extended.
 
-        Returns
-        -------
-        sympy.Matrix
-            Square matrix of determinant 1.
+    Returns
+    -------
+    sympy.Matrix
+        Square matrix of determinant 1.
 
     >>> matrix_ = sympy.Matrix([[1, 0],
     ...                         [0, 1],

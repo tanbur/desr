@@ -8,7 +8,9 @@ from sympy_helper import expressions_to_variables, unique_array_stable, monomial
 from tex_tools import expr_to_tex, var_to_tex, tex_to_sympy
 
 class ODESystem(object):
-    ''' A class which represents a system of differential equations '''
+    '''
+    A class which represents a system of differential equations.
+    '''
 
     def __init__(self, variables, derivatives, indep_var=None):
         self._variables = tuple(variables)
