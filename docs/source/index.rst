@@ -15,6 +15,8 @@ Contents:
 
    examples
 
+   crn_doc
+
    modules/index
 
 

@@ -14,4 +14,3 @@ Contents:
    diophantine_doc
    ode_system_doc
    ode_translation_doc
-   crn_doc
