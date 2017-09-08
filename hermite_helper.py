@@ -397,7 +397,7 @@ def _swap_ij_rows(matrices, i, j):
 
         Returns
         -------
-        matrices : tuple
+        matrices: tuple
             The resulting matrices.
 
     >>> matrices = [sympy.eye(3) for _ in xrange(2)]
@@ -575,20 +575,25 @@ def is_smf(matrix_):
 
 def smf(matrix_):
     """
-    Given a rectangular :math:`n \\times m` integer matrix, calculate the Smith Normal Form :math:`S` and multipliers :math:`U`, :math:`V` such
-    that :math:`U \\textrm{matrix_} V = S`.
+    Given a rectangular :math:`n \\times m` integer matrix, calculate the Smith Normal Form :math:`S` and multipliers
+    :math:`U`, :math:`V` such that :math:`U \\textrm{matrix_} V = S`.
 
     Parameters
     ----------
     matrix_ : sympy.Matrix
-        The rectangular matrix to be decomposed
+        The rectangular matrix to be decomposed.
 
     Returns
     -------
-    tuple:
-        S (sympy.Matrix): The Smith normal form of matrix_.
-        U (sympy.Matrix): :math:`U` (the matrix representing the row operations of the decomposition).
-        V (sympy.Matrix): :math:`V` (the matrix representing the column operations of the decomposition).
+    S : sympy.Matrix
+        The Smith normal form of matrix_.
+    U : sympy.Matrix
+        :math:`U` (the matrix representing the row operations of the decomposition).
+    V : sympy.Matrix
+        :math:`V` (the matrix representing the column operations of the decomposition).
+
+
+    :rtype: (sympy.Matrix, sympy.Matrix, sympy.Matrix)
 
 
     >>> matrix_ = sympy.Matrix([[2, 4, 4],
@@ -688,6 +693,8 @@ def smf(matrix_):
 
     assert is_smf(transformed)
     return transformed, row_actions, col_actions
+
+
 
 if __name__ == '__main__':
     import doctest
