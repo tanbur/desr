@@ -105,9 +105,11 @@ def hnf_row_lll(matrix_):
 
     Returns:
         tuple:
-            hnf (sympy.Matrix): The row Hermite normal form of matrix_.
+            hnf (sympy.Matrix): The row Hermite normal form of matrix\\_.
+
             unimod (sympy.Matrix): Unimodular matrix representing the row actions.
 
+    :rtype: (sympy.Matrix, sympy.Matrix)
 
     >>> matrix_ = sympy.Matrix([[2, 0],
     ...                         [3, 3],
@@ -173,8 +175,10 @@ def hnf_col_lll(matrix_):
 
     Returns:
         tuple:
-            hnf (sympy.Matrix): The column Hermite normal form of matrix_.
+            hnf (sympy.Matrix): The column Hermite normal form of matrix\\_.
             unimod (sympy.Matrix): Unimodular matrix representing the column actions.
+
+    :rtype: (sympy.Matrix, sympy.Matrix)
 
     >>> A = sympy.Matrix([[8, 2, 15, 9, 11],
     ...                   [6, 0, 6, 2, 3]])
@@ -208,7 +212,7 @@ def is_normal_hermite_multiplier(hermite_multiplier, matrix_):
         matrix_ (sympy.Matrix): Matrix
 
     Returns:
-        bool: matrix_ * hermite_multiplier is in Hermite normal form and hermite_multiplier is in normal form.
+        bool: matrix\\_ * hermite_multiplier is in Hermite normal form and hermite_multiplier is in normal form.
     '''
     if matrix_.rank() != matrix_.shape[0]:
         raise ValueError('Matrix must have full row rank')
@@ -246,7 +250,7 @@ def normal_hnf_col(matrix_):
 
     Returns:
         tuple: Tuple containing:
-            hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix_.
+            hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix\\_.
             normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
 
     >>> A = sympy.Matrix([[8, 2, 15, 9, 11],
@@ -282,7 +286,7 @@ def normal_hnf_row(matrix_):
     Returns:
         tuple: Tuple containing:
 
-            hermite_normal_form (sympy.Matrix): The row Hermite normal form of matrix_.
+            hermite_normal_form (sympy.Matrix): The row Hermite normal form of matrix\\_.
             normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
     '''
     hermite_normal_form, normal_multiplier = normal_hnf_col(matrix_=matrix_.T)
@@ -297,9 +301,12 @@ Args:
     matrix_ (sympy.Matrix): Input matrix.
 
 Returns:
-    tuple: Tuple containing:
+    tuple:
         hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix\\_.
+
         normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
+
+:rtype: (sympy.Matrix, sympy.Matrix)
 """
 
 hnf_col = hnf_col_lll
@@ -311,8 +318,10 @@ Args:
 
 Returns:
     tuple: Tuple containing:
-        hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix_.
+        hermite_normal_form (sympy.Matrix): The column Hermite normal form of matrix\\_.
+
         normal_multiplier (sympy.Matrix): The normal Hermite multiplier.
+:rtype: (sympy.Matrix, sympy.Matrix)
 """
 
 ## Smith normal form
@@ -586,7 +595,7 @@ def smf(matrix_):
     Returns
     -------
     S : sympy.Matrix
-        The Smith normal form of matrix_.
+        The Smith normal form of matrix\\_.
     U : sympy.Matrix
         :math:`U` (the matrix representing the row operations of the decomposition).
     V : sympy.Matrix
