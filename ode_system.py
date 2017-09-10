@@ -2,6 +2,7 @@ import itertools
 import re
 
 import sympy
+from sympy.abc import _clash1
 
 from hermite_helper import hnf_col, hnf_row, normal_hnf_col
 from sympy_helper import expressions_to_variables, unique_array_stable, monomial_to_powers
@@ -9,7 +10,16 @@ from tex_tools import expr_to_tex, var_to_tex, tex_to_sympy
 
 class ODESystem(object):
     '''
-    A class which represents a system of differential equations.
+    A system of differential equations.
+
+    The main attributes are :attr:`~variables` and :attr:`~derivatives`.
+    :attr:`~variables` is an ordered tuple of non-constant variables, which includes the independent variable.
+    :attr:`~derivatives` is an ordered tuple of the same length that contains the derivatives with respect to :attr:`~indep_var`.
+
+    Args:
+        variables (tuple of sympy.Symbol): Ordered tuple of variables.
+        derivatives (tuple of sympy.Expression): Ordered tuple of derivatives.
+        indep_var (sympy.Symbol, optional): Independent variable we are differentiating with respect to.
     '''
 
     def __init__(self, variables, derivatives, indep_var=None):
@@ -52,60 +62,139 @@ class ODESystem(object):
 
     def copy(self):
         '''
-        Return a copy of the ODESystem.
-
         Returns:
-            ODESystem
+            ODESystem: A copy of the system.
         '''
         return ODESystem(self._variables, self._derivatives, indep_var=self._indep_var)
 
     @property
     def indep_var(self):
+        """
+        Returns:
+            sympy.Symbol: The independent variable, which we are differentiating with respect to.
+        """
         return self._indep_var
 
     @property
     def indep_var_index(self):
+        """
+        Return:
+             int: The index of :py:attr:`~indep_var` in :py:attr:`~self.variables`.
+        """
         return self.variables.index(self.indep_var)
 
     @property
     def variables(self):
-        ''' Getter for an ordered tuple of variables '''
+        '''
+        Returns:
+            tuple: Ordered tuple of variables appearing in the system.
+        '''
         return self._variables
 
     @property
     def constant_variables(self):
-        ''' Return the number of constant variables - specifically those which have a None derivative '''
+        '''
+        Return the constant variables - specifically those which have a None derivative.
+
+        Returns:
+            tuple: The constant variables.
+        '''
         return tuple(var for var, deriv in zip(self.variables, self._derivatives) if deriv is None)
 
     @property
     def num_constants(self):
-        ''' Return the number of constant variables - specifically those which have a None derivative '''
+        '''
+        Return the number of constant variables - specifically those which have a :const:`None` derivative
+
+        Returns:
+            int: Number of non-constant variables.
+        '''
         return len(self.constant_variables)
 
     @property
     def derivatives(self):
-        ''' Getter for an ordered tuple of expressions representing the derivatives of self.variables '''
+        ''' Getter for an ordered tuple of expressions representing the derivatives of self.variables.
+
+        Returns:
+            tuple: Ordered tuple of sympy.Expressions.
+        '''
         return [expr if expr is not None else sympy.sympify(0) for expr in self._derivatives]
 
     @property
     def derivative_dict(self):
-        ''' Return a variable: expr mapping, filtering out the Nones in expr '''
+        '''
+        Return a variable: expr mapping, filtering out the :const:`None`'s in expr.
+
+        Returns:
+            dict: Keys are non-constant variables, value is the derivative with respect to the independent variable.
+        '''
         return dict(filter(lambda x: x[1] is not None, zip(self.variables, self._derivatives)))
 
     @classmethod
     def from_equations(cls, equations, indep_var=sympy.var('t')):
-        ''' Instantiate from a text of equations '''
+        '''
+        Instantiate from multiple lines of equations.
+
+        Args:
+            equations (str): Equations of the form "dx/dt = expr", one per line.
+            indep_var (sympy.Symbol): The independent variable, usually t
+
+        Returns:
+            ODESystem: System of equations.
+
+        >>> eqns = '\\n'.join(['dx/dt = c_0*x*y', 'dy/dt = c_1*(1-x)*(1-y)'])
+        >>> ODESystem.from_equations(eqns)
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*(-x + 1)*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+        >>> eqns = '\\n'.join(['dy/dx = c_0*x*y', 'dz/dx = c_1*(1-y)*z**2'])
+        >>> ODESystem.from_equations(eqns, indep_var=sympy.Symbol('x'))
+        dx/dx = 1
+        dy/dx = c_0*x*y
+        dz/dx = c_1*z**2*(-y + 1)
+        dc_0/dx = 0
+        dc_1/dx = 0
+        '''
         if isinstance(equations, str):
             equations = equations.strip().split('\n')
 
-        deriv_dict = dict(map(parse_de, equations))
-        system = cls.from_dict(deriv_dict=deriv_dict)
+        deriv_dict = dict(map(lambda x: parse_de(x, indep_var=str(indep_var)), equations))
+        system = cls.from_dict(deriv_dict=deriv_dict, indep_var=indep_var)
         system.default_order_variables()
         return system
 
     @classmethod
     def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
-        ''' Instantiate from a text of equations '''
+        '''
+        Instantiate from a text of equations.
+
+        Args:
+            deriv_dict (dict): {variable: derivative} mapping.
+            indep_var (sympy.Symbol): Independent variable, that the derivatives are with respect to.
+
+        Returns:
+            ODESystem: System of ODEs.
+
+        >>> _input = {'x': 'c_0*x*y', 'y': 'c_1*(1-x)*(1-y)'}
+        >>> _input = {sympy.Symbol(k): sympy.sympify(v) for k, v in _input.iteritems()}
+        >>> ODESystem.from_dict(_input)
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*(-x + 1)*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+
+        >>> _input = {'y':  'c_0*x*y', 'z': 'c_1*(1-y)*z**2'}
+        >>> _input = {sympy.Symbol(k): sympy.sympify(v) for k, v in _input.iteritems()}
+        >>> ODESystem.from_dict(_input, indep_var=sympy.Symbol('x'))
+        dx/dx = 1
+        dy/dx = c_0*x*y
+        dz/dx = c_1*z**2*(-y + 1)
+        dc_0/dx = 0
+        dc_1/dx = 0
+        '''
         # Make a tuple of all variables.
         variables = set(expressions_to_variables(deriv_dict.values())).union(set(deriv_dict.keys()))
         variables = tuple(variables.union(set([indep_var])))
@@ -113,7 +202,7 @@ class ODESystem(object):
         assert ((deriv_dict.get(indep_var) is None) or (deriv_dict.get(indep_var) == 1))
         deriv_dict[indep_var] = sympy.sympify(1)
 
-        system = cls(variables, tuple([deriv_dict.get(var) for var in variables]))
+        system = cls(variables, tuple([deriv_dict.get(var) for var in variables]), indep_var=indep_var)
         system.default_order_variables()
         return system
 
@@ -123,7 +212,26 @@ class ODESystem(object):
         return '\n'.join(lines)
 
     def to_tex(self):
-        ''' Return a tex version '''
+        '''
+        Returns:
+            str: TeX representation.
+
+
+        >>> eqns = ['dC/dt = -C*k_2 - C*k_m1 + E*S*k_1',
+        ... 'dE/dt = C*k_2 + C*k_m1 - E*S*k_1',
+        ... 'dP/dt = C*k_2',
+        ... 'dS/dt = C*k_m1 - E*S*k_1']
+        >>> system = ODESystem.from_equations('\\n'.join(eqns))
+        >>> print system.to_tex()
+        \\frac{dt}{dt} &= 1 \\\\
+        \\frac{dC}{dt} &= - C k_{2} - C k_{-1} + E S k_{1} \\\\
+        \\frac{dE}{dt} &= C k_{2} + C k_{-1} - E S k_{1} \\\\
+        \\frac{dP}{dt} &= C k_{2} \\\\
+        \\frac{dS}{dt} &= C k_{-1} - E S k_{1} \\\\
+        \\frac{dk_{1}}{dt} &= 0 \\\\
+        \\frac{dk_{2}}{dt} &= 0 \\\\
+        \\frac{dk_{-1}}{dt} &= 0
+        '''
         line_template = '\\frac{{d{}}}{{d{}}} &= {}'
         lines = [line_template.format(var_to_tex(var), var_to_tex(self.indep_var), expr_to_tex(expr))
                  for var, expr in zip(self.variables, self.derivatives)]
@@ -132,18 +240,19 @@ class ODESystem(object):
     @classmethod
     def from_tex(cls, tex):
         """
-        Given the latex of a system of differential equations, return a ODESystem of it.
+        Given the LaTeX of a system of differential equations, return a ODESystem of it.
 
         Args:
             tex (str): LaTeX
 
         Returns:
-             ODESystem
+            ODESystem: System of ODEs.
 
-        >>> ODESystem.from_tex(r'\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\
-        ... \frac{dS}{dt} &= - k_1 E S + k_{-1} C \\
-        ... \frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\
-        ... \frac{dP}{dt} &= k_2 C')
+        >>> eqns = ['\\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\\\',
+        ... '\\frac{dS}{dt} &= - k_1 E S + k_{-1} C \\\\',
+        ... '\\frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\\\',
+        ... '\\frac{dP}{dt} &= k_2 C']
+        >>> ODESystem.from_tex('\\n'.join(eqns))
         dt/dt = 1
         dC/dt = -C*k_2 - C*k_m1 + E*S*k_1
         dE/dt = C*k_2 + C*k_m1 - E*S*k_1
@@ -171,9 +280,31 @@ class ODESystem(object):
         return cls.from_dict(deriv_dict=derivative_dict)
 
 
-    def _power_matrix(self):
-        ''' Determine the 'power' matrix of the system, by gluing together the power matrices of each derivative
-            expression
+    def power_matrix(self):
+        '''
+        Determine the 'exponent' or 'power' matrix of the system, denoted by :math:`K` in the literature,
+        by gluing together the power matrices of each derivative.
+
+        In particular, it concatenates :math:`K_{\\left(\\frac{t}{x} \\cdot \\frac{dx}{dt}\\right)}` for :math:`x` in :attr:`~variables`,
+        where :math:`t` is the independent variable.
+
+        >>> eqns = '\\n'.join(['ds/dt = -k_1*e_0*s + (k_1*s + k_m1)*c',
+        ... 'dc/dt = k_1*e_0*s - (k_1*s + k_m1 + k_2)*c'])
+        >>> system = ODESystem.from_equations(eqns)
+        >>> system.power_matrix()
+        Matrix([
+        [1, 1, 1,  1, 1, 1,  1, 0],
+        [0, 0, 0, -1, 0, 1,  1, 0],
+        [1, 0, 0,  1, 0, 0, -1, 0],
+        [0, 0, 0,  1, 1, 0,  0, 0],
+        [1, 0, 0,  1, 1, 1,  0, 0],
+        [0, 1, 0,  0, 0, 0,  0, 0],
+        [0, 0, 1,  0, 0, 0,  1, 0]])
+
+        While we get a different answer to the example in the paper, this is just due to choosing our reference exponent in a different way.
+
+        Todo:
+            * Change the code to agree with the paper.
 
         '''
         exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
@@ -183,12 +314,45 @@ class ODESystem(object):
         return out
 
     def maximal_scaling_matrix(self):
-        ''' Determine the maximal scaling matrix leaving this system invariant '''
+        '''
+        Determine the maximal scaling matrix leaving this system invariant.
+
+        Returns:
+            sympy.Matrix: Maximal scaling matrix.
+
+
+        >>> eqns = '\\n'.join(['ds/dt = -k_1*e_0*s + (k_1*s + k_m1)*c',
+        ... 'dc/dt = k_1*e_0*s - (k_1*s + k_m1 + k_2)*c'])
+        >>> system = ODESystem.from_equations(eqns)
+        >>> system.maximal_scaling_matrix()
+        Matrix([
+        [1, 0, 0, 0, -1, -1, -1],
+        [0, 1, 1, 1, -1,  0,  0]])
+        '''
         exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
         return maximal_scaling_matrix(exprs, variables=self.variables)
 
     def reorder_variables(self, variables):
-        ''' Reorder the equation according to the new order of variables '''
+        '''
+        Reorder the equation according to the new order of variables.
+
+        Args:
+            variables (str, iter):
+                Another ordering of the variables.
+
+        >>> eqns = ['dz_1/dt = z_1*z_3', 'dz_2/dt = z_1*z_2 / (z_3 ** 2)']
+        >>> system = ODESystem.from_equations('\\n'.join(eqns))
+        >>> system.variables
+        (t, z_1, z_2, z_3)
+        >>> system.derivatives
+        [1, z_1*z_3, z_1*z_2/z_3**2, 0]
+
+        >>> system.reorder_variables(['z_2', 'z_3', 't', 'z_1'])
+        >>> system.variables
+        (z_2, z_3, t, z_1)
+        >>> system.derivatives
+        [z_1*z_2/z_3**2, 0, 1, z_1*z_3]
+        '''
         if isinstance(variables, basestring):
             if ' ' in variables:
                 variables = variables.split(' ')
@@ -205,7 +369,25 @@ class ODESystem(object):
         self._derivatives = tuple(sympy.Matrix(self._derivatives).extract(column_shuffle, [0]))
 
     def default_order_variables(self):
-        ''' Reorder the variables into (independent, dependent, variables) '''
+        '''
+        Reorder the variables into (independent variable, dependent variables, constant variables),
+        which generally gives the simplest reductions.
+        Variables of the same type are sorted by their string representations.
+
+
+        >>> eqns = ['dz_1/dt = z_1*z_3', 'dz_2/dt = z_1*z_2 / (z_3 ** 2)']
+        >>> system = ODESystem.from_equations('\\n'.join(eqns))
+        >>> system.variables
+        (t, z_1, z_2, z_3)
+
+        >>> system.reorder_variables(['z_2', 'z_3', 't', 'z_1'])
+        >>> system.variables
+        (z_2, z_3, t, z_1)
+
+        >>> system.default_order_variables()
+        >>> system.variables
+        (t, z_1, z_2, z_3)
+        '''
         all_var = self.variables
         dep_var = sorted(self.derivative_dict.keys(), key=str)
         dep_var.remove(self.indep_var)
@@ -226,11 +408,13 @@ def parse_de(diff_eq, indep_var='t'):
         (p, sp(-hp/n + 1))
     '''
     diff_eq = diff_eq.strip()
-    ##TODO Replace variable( with variable*(
-    match = re.match(r'd([a-zA-Z0-9]*)/d([a-zA-Z0-9]*)\s*=*\s*(.*)', diff_eq)
+    match = re.match(r'd([a-zA-Z0-9_]*)/d([a-zA-Z0-9_]*)\s*=*\s*(.*)', diff_eq)
+    if match is None:
+        raise ValueError("Invalid differential equation: {}".format(diff_eq))
     if match.group(2) != indep_var:
         raise ValueError('We only work in ordinary DEs in {}'.format(indep_var))
-    return sympy.var(match.group(1)), sympy.sympify(match.group(3))
+    # Feed in _clash1 so that we can use variables S, C, etc., which are special characters in sympy.
+    return sympy.var(match.group(1)), sympy.sympify(match.group(3), _clash1)
 
 def rational_expr_to_power_matrix(expr, variables):
     '''
