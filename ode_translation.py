@@ -23,7 +23,20 @@ def _int_inv(matrix_):
     return sympy_inverse
 
 class ODETranslation(object):
-    ''' An object used for translating between systems of ODEs according to a scaling matrix '''
+    '''
+    An object used for translating between systems of ODEs according to a scaling matrix.
+    The key data are :attr:`~scaling_matrix` and :attr:`~herm_mult`, which together contain all the information needed
+    (along with a variable order) to reduce an :class:`ode_system.ODESystem`.
+
+    Args:
+        scaling_matrix (sympy.Matrix): Matrix that defines the torus action on the system.
+        variables_domain (iter of sympy.Symbol, optional): An ordering of the variables we expect to act upon.
+            If this is not given, we will act on a system according to the position of the variables in
+            :attr:`ode_system.ODESystem.variables`, as long as there is the correct number of variables.
+        hermite_multiplier (sympy.Matrix, optional): User-defined Hermite multiplier, that puts :attr:`~scaling_matrix` into
+            column Hermite normal form.
+            If not given, the normal Hermite multiplier will be calculated.
+    '''
     def __init__(self, scaling_matrix, variables_domain=None, hermite_multiplier=None):
         scaling_matrix = scaling_matrix.copy()
 
@@ -43,86 +56,97 @@ class ODETranslation(object):
         self._inv_herm_mult = _int_inv(self._herm_mult)
 
     def __repr__(self):
-        return 'A=\n{}\nV=\n{}\n\nW={}'.format(self.scaling_matrix.__repr__(),
+        return 'A=\n{}\nV=\n{}\nW=\n{}'.format(self.scaling_matrix.__repr__(),
                                                self.herm_mult.__repr__(),
                                                self.inv_herm_mult.__repr__())
 
     def to_tex(self):
         '''
-        The system represented in lovely Tex.
-
         Returns:
-            str
+            str: The scaling matrix :math:`A`, the Hermite multiplier :math:`V` and :math:`W = V^{-1}`, in beautiful LaTeX.
+
+        >>> print ODETranslation(sympy.Matrix(range(12)).reshape(3, 4)).to_tex()
+        A=
+        0 & 1 & 2 & 3 \\\\
+        4 & 5 & 6 & 7 \\\\
+        8 & 9 & 10 & 11 \\\\
+        V=
+        0 & 0 & 1 & 0 \\\\
+        0 & 0 & 0 & 1 \\\\
+        -1 & 3 & -3 & -2 \\\\
+        1 & -2 & 2 & 1 \\\\
+        W=
+        0 & 1 & 2 & 3 \\\\
+        1 & 1 & 1 & 1 \\\\
+        1 & 0 & 0 & 0 \\\\
+        0 & 1 & 0 & 0 \\\\
+
         '''
         to_print = (self.scaling_matrix, self.herm_mult, self.inv_herm_mult)
         to_print = map(matrix_to_tex, to_print)
-        return 'A=\n{}\nV=\n{}\n\nW={}'.format(*to_print)
+        return 'A=\n{}\nV=\n{}\nW=\n{}'.format(*to_print)
 
     @property
     def scaling_matrix(self):
         """
-        The scaling matrix that this translation corresponds to.
-
         Returns:
-            sympy.Matrix
+            sympy.Matrix: The scaling matrix that this translation corresponds to, often denoted :math:`A`.
         """
         return self._scaling_matrix
 
     @property
     def r(self):
         '''
-        The dimension of the scaling action
-
         Returns:
-            int
+            int: The dimension of the scaling action: :math:`r`.
+                In particular it is the number of rows of :attr:`~scaling_matrix`.
         '''
         return self._scaling_matrix.shape[0]
 
     @property
     def n(self):
         '''
-        The number of original variables that the scaling action is acting on.
         Returns:
-            int
+            int: The number of original variables that the scaling action is acting on: :math:`n`.
+                In particular, it is the number of columns of :attr:`~scaling_matrix`.
         '''
         return self._scaling_matrix.shape[1]
 
     @property
     def herm_mult(self):
         '''
-        Better known in Hubert Labahn as V
-
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                A column Hermite multiplier :math:`V` that puts the :attr:`~scaling_matrix` in column Hermite normal form.
+                That is: :math:`AV = H` is in column Hermite normal form.
         '''
         return self._herm_mult.copy()
 
     @property
     def herm_form(self):
         '''
-        The Hermite normal form of the scaling matrix.
-
         Returns:
-            sympy.Matrix
+            sympy.Matrix: The Hermite normal form of the scaling matrix: :math:`H = AV`.
         '''
         return self._scaling_matrix_hnf.copy()
 
     @property
     def herm_mult_i(self):
         '''
-        The first r columns of V: Vi
-
         Returns:
-            sympy.Matrix
+            sympy.Matrix: :math:`V_{\\mathfrak{i}}`: the first :math:`r` columns of :math:`V`.
+
+                The columns represent the auxiliary variables of the reduction.
         '''
         return self.herm_mult[:, :self.r]
 
     @property
     def herm_mult_n(self):
         '''
-        The last n-r columns of the Hermite multiplier V = Vn, which represent the invariants of the scaling action.
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                :math:`V_{\\mathfrak{n}}`: the last :math:`n-r` columns of the Hermite multiplier :math:`V``.
+                The columns represent the invariants of the scaling action.
         '''
         return self.herm_mult[:, self.r:]
 
@@ -130,40 +154,53 @@ class ODETranslation(object):
     @property
     def inv_herm_mult(self):
         '''
-        The inverse of the Hermite multiplier. Better known in Hubert Labahn as W
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                The inverse of the Hermite multiplier :math:`W=V^{-1}`.
         '''
         return self._inv_herm_mult.copy()
 
     @property
     def inv_herm_mult_u(self):
         '''
-        The first r rows of W: Wu
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                :math:`W_{\\mathfrak{u}}`: the first :math:`r` rows of :math:`W`.
         '''
         return self.inv_herm_mult[:self.r, :]
 
     @property
     def inv_herm_mult_d(self):
         """
-        The last n-r rows of W: Wd
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                :math:`W_{\\mathfrak{d}}`: the last :math:`n-r` rows of :math:`W`.
         """
         return self.inv_herm_mult[self.r:, :]
 
-    @property
+
     def dep_var_herm_mult(self, indep_var_index=0):
         '''
-        Return the Hermite multiplier V, ignoring the independent variable.
-
         Args:
             indep_var_index (int): The index of the independent variable.
 
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                The Hermite multiplier :math:`V`, ignoring the independent variable.
+
+
+        >>> translation = ODETranslation(sympy.Matrix(range(12)).reshape(3, 4))
+        >>> translation.herm_mult
+        Matrix([
+        [ 0,  0,  1,  0],
+        [ 0,  0,  0,  1],
+        [-1,  3, -3, -2],
+        [ 1, -2,  2,  1]])
+        >>> translation.dep_var_herm_mult(1)
+        Matrix([
+        [ 0,  0,  1],
+        [-1,  3, -3],
+        [ 1, -2,  2]])
         '''
         new_herm_mult = self.herm_mult.copy()
         col_to_delete = new_herm_mult[indep_var_index, :]
@@ -173,42 +210,61 @@ class ODETranslation(object):
         # new_herm_mult = new_herm_mult[:, ~col_to_delete.astype(bool)]
         return new_herm_mult
 
-    @property
-    def dep_var_inv_herm_mult(self):
+    def dep_var_inv_herm_mult(self, indep_var_index=0):
         '''
-        Return the inverse Hermite multiplier, ignoring the independent variable.
+        Args:
+            indep_var_index (int): The index of the independent variable.
+
         Returns:
-            sympy.Matrix
+            sympy.Matrix:
+                The inverse Hermite multiplier :math:`W`, ignoring the independent variable.
+
+        >>> translation = ODETranslation(sympy.Matrix(range(12)).reshape(3, 4))
+        >>> translation.inv_herm_mult
+        Matrix([
+        [0, 1, 2, 3],
+        [1, 1, 1, 1],
+        [1, 0, 0, 0],
+        [0, 1, 0, 0]])
+        >>> translation.dep_var_inv_herm_mult(1)
+        Matrix([
+        [0, 2, 3],
+        [1, 1, 1],
+        [1, 0, 0]])
         '''
-        return _int_inv(self.dep_var_herm_mult)
+        return _int_inv(self.dep_var_herm_mult(indep_var_index=indep_var_index))
 
     @property
     def variables_domain(self):
         '''
-        The variables that the scaling action acts on.
         Returns:
-            tuple, None
+            tuple, None:
+                The variables that the scaling action acts on.
         '''
         return self._variables_domain
 
     @classmethod
     def from_ode_system(cls, ode_system):
         '''
-        Create an ODETranslation given an ODESystem instance, by taking the maximal scaling matrix.
-        Returns:
-            ODETranslation
+        Create a :class:`ODETranslation` given an :class:`ode_system.ODESystem` instance, by taking the maximal scaling matrix.
+
+        Args:
+            ode_system (ODESystem)
+
+        :rtype: ODETranslation
         '''
         return cls(scaling_matrix=ode_system.maximal_scaling_matrix(), variables_domain=ode_system.variables)
 
     def translate(self, system):
         '''
-        Translate into a reduced system. First, try the simplest parameter reduction method, then the dependent variable translation (where the scaling action ignores the independent variable) and finally the general reduction scheme.
+        Translate an :class:`ode_system.ODESystem` into a reduced system.
+
+        First, try the simplest parameter reduction method, then the dependent variable translation (where the scaling action ignores the independent variable) and finally the general reduction scheme.
 
         Args:
             system (ODESystem): System to reduce.
 
-        Returns:
-            ODESystem
+        :rtype: ODESystem
         '''
         if self._is_translate_parameter_compatible(system=system):
             return self.translate_parameter(system=system)
@@ -221,12 +277,24 @@ class ODETranslation(object):
 
 
     def translate_dep_var(self, system):
-        ''' Given a system of ODEs, translate the system into a simplified version. Assume we are only working on
-            dependent variables, not time.
+        '''
+        Given a system of ODEs, translate the system into a simplified version. Assume we are only working on
+        dependent variables, not the independent variable.
+
+        Args:
+            system (ODESystem): System to reduce.
+
+        :rtype: ODESystem
+
+        >>> equations = 'dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.translate_dep_var(system=system)
         '''
         # First check that our scaling action doesn't act on the independent variable
         if self.n == len(system.variables):
-            assert self.scaling_matrix[:, system.indep_var_index].is_zero
+            if not self.scaling_matrix[:, system.indep_var_index].is_zero:
+                raise ValueError('The independent variable of\n{}\nis acted on by\n{}.'.format(system, self))
             scaling_matrix = self.scaling_matrix.copy()
             scaling_matrix.col_del(system.indep_var_index)
             new_herm_mult = self.dep_var_herm_mult
@@ -283,7 +351,30 @@ class ODETranslation(object):
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
 
     def translate_general(self, system):
-        ''' Given a system of ODEs, translate the system into a simplified version. General version
+        '''
+        The most general reduction scheme.
+        If there are :math:`n` variables (including the independent variable) then there will be a system of
+        :math:`n-r+1` invariants and :math:`r` auxiliary variables.
+
+        Args:
+            system (ODESystem): System to reduce.
+
+        :rtype: ODESystem
+
+        >>> equations = 'dn/dt = n*( r*(1 - n/K) - k*p/(n+d) );dp/dt = s*p*(1 - h*p / n)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.translate_general(system=system)
+        dt/dt = 1
+        dx0/dt = 0
+        dx1/dt = 0
+        dx2/dt = 0
+        dy0/dt = y0/t
+        dy1/dt = y1*(-y0*y1*y5/y3 - y0*y2/(y1 + 1) + y0*y5)/t
+        dy2/dt = y2*(y0 - y0*y2*y4/y1)/t
+        dy3/dt = 0
+        dy4/dt = 0
+        dy5/dt = 0
         '''
         # y = sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
         #print 'y = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
@@ -553,16 +644,19 @@ class ODETranslation(object):
         Extend a given set of invariants, expressed as a matrix of exponents, to find a Hermite multiplier that will
         rewrite the system in terms of invariant_choice.
 
+
         Parameters
         ----------
         invariant_choice : sympy.Matrix
-            The $n \times k$ matrix representing the invariants, where $n$ is the number of variables and $k$ is the
+            The :math:`n \\times k` matrix representing the invariants, where :math:`n` is the number of variables and :math:`k` is the
             number of given invariants.
+
 
         Returns
         -------
         ODETranslation
             An ODETranslation representing the rewrite rules in terms of the given invariants.
+
 
         >>> variables = sympy.symbols(' '.join(['y{}'.format(i) for i in xrange(6)]))
         >>> ode_translation = ODETranslation(sympy.Matrix([[1, 0, 3, 0, 2, 2],
@@ -573,7 +667,8 @@ class ODETranslation(object):
 
         Now we can express two new invariants, which we think are more interesting, as a matrix.
         We pick the product of the first two invariants, and the product of the last two invariants:
-        y0**3 * y1 * y2/(y3**2 * y4**3) and y1 *  y2**2/(y4 * y5**2)
+        :code:`y0**3 * y1 * y2/(y3**2 * y4**3)` and :code:`y1 *  y2**2/(y4 * y5**2)`
+
         >>> new_inv = sympy.Matrix([[3, 1, 1, -2, -3, 0],
         ...                         [0, 1, 2, 0, -1, -2]]).T
 
@@ -634,22 +729,23 @@ class ODETranslation(object):
 
 
 def scale_action(vect, scaling_matrix):
-    ''' Given a vector of sympy expressions, determine the action defined by scaling_matrix
-        I.e. Given vect, calculate vect^scaling_matrix (in notation of Hubert Labahn).
+    '''
+    Given a vector of sympy expressions, determine the action defined by scaling_matrix
+    I.e. Given vect, calculate vect^scaling_matrix (in notation of Hubert Labahn).
 
-        >>> import sympy
+    Example 3.3
 
-        Example 3.3
-        >>> v = sympy.var('l')
-        >>> A = sympy.Matrix([[2, 3]])
-        >>> scale_action([v], A)
-        Matrix([[l**2, l**3]])
+    >>> x = sympy.var('x')
+    >>> A = sympy.Matrix([[2, 3]])
+    >>> scale_action([x], A)
+    Matrix([[x**2, x**3]])
 
-        Example 3.4
-        >>> v = sympy.var('m v')
-        >>> A = sympy.Matrix([[6, 0, -4, 1, 3], [0, 3, 1, -4, 3]])
-        >>> scale_action(v, A)
-        Matrix([[m**6, v**3, v/m**4, m/v**4, m**3*v**3]])
+    Example 3.4
+
+    >>> v = sympy.var('m v')
+    >>> A = sympy.Matrix([[6, 0, -4, 1, 3], [0, 3, 1, -4, 3]])
+    >>> scale_action(v, A)
+    Matrix([[m**6, v**3, v/m**4, m/v**4, m**3*v**3]])
     '''
     assert len(vect) == scaling_matrix.shape[0]
     out = []
@@ -662,17 +758,20 @@ def scale_action(vect, scaling_matrix):
 
 def extend_rectangular_matrix(matrix_, check_unimodular=True):
     """
-    Given a rectangular $n \times m$ integer matrix, extend it to a unimodular one by appending columns.
+    Given a rectangular :math:`n \\times m` integer matrix, extend it to a unimodular one by appending columns.
+
 
     Parameters
     ----------
     matrix_
         The rectangular matrix to be extended.
 
+
     Returns
     -------
     sympy.Matrix
         Square matrix of determinant 1.
+
 
     >>> matrix_ = sympy.Matrix([[1, 0],
     ...                         [0, 1],
@@ -684,6 +783,7 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
     [0, 0, 1]])
 
     By default, we will throw if we cannot extend a matrix to a unimodular matrix.
+
     >>> matrix_[0, 0] = 2
     >>> extend_rectangular_matrix(matrix_=matrix_)
     Traceback (most recent call last):
@@ -693,6 +793,7 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
     to a unimodular matrix.
 
     We can extend some more interesting matrices.
+
     >>> matrix_ = sympy.Matrix([[3, 2],
     ...                         [-2, 1],
     ...                         [5, 6],])
