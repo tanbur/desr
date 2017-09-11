@@ -1,5 +1,5 @@
-ode_system.py
-=============
+Systems of ODEs
+===============
 
 The ODESystem class is what we use to represent our system of ordinary differential equations.
 

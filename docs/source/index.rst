@@ -13,11 +13,11 @@ Contents:
 
    intro
 
-   examples
-
+   hermite_smith_doc
+   ode_system_doc
+   ode_translation_doc
    crn_doc
-
-   modules/index
+   examples
 
 
 Indices and tables
