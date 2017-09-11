@@ -290,6 +290,9 @@ class ODETranslation(object):
         >>> system = ODESystem.from_equations(equations)
         >>> translation = ODETranslation.from_ode_system(system)
         >>> translation.translate_dep_var(system=system)
+        dt/dt = 1
+        dx0/dt = x0*(y0 - 1/t)
+        dy0/dt = y0*(1 + 1/t)
         '''
         # First check that our scaling action doesn't act on the independent variable
         if self.n == len(system.variables):
@@ -408,15 +411,17 @@ class ODETranslation(object):
         return ODESystem(new_variables, new_derivatives, indep_var=system.indep_var)
 
     def _is_translate_parameter_compatible(self, system):
-        ''' Check weather a system can be used to use the parameter scheme of translation '''
-        # First check our system is in order
+        ''' Check whether a system satisfies the conditions of the parameter scheme of translation '''
+        # First check our system's variables are in the required order
+        # Independent at the beginning
         if system.indep_var_index != 0:
             return False
+        # Constant variables at the end
         for i in xrange(system.num_constants):
             if system.derivatives[-i - 1] != sympy.sympify(0):
                 return False
 
-        # Now check our transformation is valid
+        # Now check our transformation is valid: that V and W have the required forms
         # m is number of non-constant variables (including independent variable)
         m = len(system.variables) - system.num_constants
         if not self.herm_mult_i[:m, :].is_zero:
@@ -433,7 +438,21 @@ class ODETranslation(object):
         return True
 
     def translate_parameter_substitutions(self, system):
-        ''' Given a system, determine the substitutions made in translation '''
+        '''
+        Given a system, determine the substitutions made in the parameter reduction.
+
+        Args:
+            system (ODESystem):
+                The system in question.
+
+        :rtype: dict
+
+        >>> equations = 'dn/dt = n*( r*(1 - n/K) - k*p/(n+d) );dp/dt = s*p*(1 - h*p / n)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.translate_parameter_substitutions(system=system)
+        {k: 1, n: n, r: c2, d: 1, K: c0, h: c1, s: 1, p: p, t: t}
+        '''
         num_variables = len(system.variables) - system.num_constants - 1  # Excluding indep
         m = num_variables + 1  # Include indep
 
@@ -475,7 +494,21 @@ class ODETranslation(object):
         return to_sub
 
     def reverse_translate_parameter_substitutions(self, system):
-        ''' Given a system, determine the substitutions made in translation '''
+        '''
+        Args:
+            system (ODESystem): The *reduced* system.
+
+        Returns:
+            dict:
+                The substitutions needed to reverse translate.
+
+        >>> equations = 'dn/dt = n*( r*(1 - n/K) - k*p/(n+d) );dp/dt = s*p*(1 - h*p / n)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> reduced = translation.translate_parameter(system)
+        >>> translation.reverse_translate_parameter_substitutions(system=reduced)
+        {k: 1, n: n, r: c2, d: 1, K: c0, h: c1, s: 1, p: p, t: t}
+        '''
         num_variables = len(system.variables) - system.num_constants - 1  # Excluding indep
         m = num_variables + 1  # Include indep
 
@@ -488,7 +521,7 @@ class ODETranslation(object):
             err_str.append(repr(self.herm_mult_n[:m, m:]))
             raise ValueError('\n'.join(err_str))
 
-        # Extract the right bits of W
+        # Extract the right bits of V
         herm_mult_n = self.herm_mult_n[m:, :]
         V_t = herm_mult_n[:, :1]
         V_v = herm_mult_n[:, 1:m]
@@ -519,7 +552,7 @@ class ODETranslation(object):
         return to_sub
 
     def translate_parameter(self, system):
-        ''' Translate according to the parameter scheme '''
+        ''' Translate according to parameter scheme '''
         to_sub = self.translate_parameter_substitutions(system=system)
 
         new_deriv_dict = {}
@@ -709,7 +742,6 @@ class ODETranslation(object):
         -------
         bool
             True if the expression is an invariant.
-
         '''
         if variable_order is not None:
             variable_order = tuple(variable_order)
