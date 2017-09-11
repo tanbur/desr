@@ -133,16 +133,16 @@ class ODESystem(object):
     @classmethod
     def from_equations(cls, equations, indep_var=sympy.var('t')):
         '''
-        Instantiate from multiple lines of equations.
+        Instantiate from multiple equations.
 
         Args:
-            equations (str): Equations of the form "dx/dt = expr", one per line.
-            indep_var (sympy.Symbol): The independent variable, usually t
+            equations (str, iter of str): Equations of the form "dx/dt = expr", optionally seperated by :code:`\\n`.
+            indep_var (sympy.Symbol): The independent variable, usually :code:`t`.
 
         Returns:
             ODESystem: System of equations.
 
-        >>> eqns = '\\n'.join(['dx/dt = c_0*x*y', 'dy/dt = c_1*(1-x)*(1-y)'])
+        >>> eqns = ['dx/dt = c_0*x*y', 'dy/dt = c_1*(1-x)*(1-y)']
         >>> ODESystem.from_equations(eqns)
         dt/dt = 1
         dx/dt = c_0*x*y
