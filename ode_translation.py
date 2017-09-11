@@ -297,11 +297,11 @@ class ODETranslation(object):
                 raise ValueError('The independent variable of\n{}\nis acted on by\n{}.'.format(system, self))
             scaling_matrix = self.scaling_matrix.copy()
             scaling_matrix.col_del(system.indep_var_index)
-            new_herm_mult = self.dep_var_herm_mult
+            new_herm_mult = self.dep_var_herm_mult(indep_var_index=system.indep_var_index)
         else:
             assert self.scaling_matrix.shape[1] == len(system.variables) - 1
             scaling_matrix = self.scaling_matrix.copy()
-            new_herm_mult = self.dep_var_herm_mult
+            new_herm_mult = self.dep_var_herm_mult(indep_var_index=system.indep_var_index)
             assert new_herm_mult[-1, :].is_zero
             new_herm_mult.col_del(system.indep_var_index)
             new_herm_mult.row_del(system.indep_var_index)
@@ -541,13 +541,13 @@ class ODETranslation(object):
         else:
             raise ValueError('Incorrect number of variables for reverse translation')
 
-    def reverse_translate_dep_var(self, variables):
+    def reverse_translate_dep_var(self, variables, indep_var_index):
         ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
         '''
         if len(variables) == self.scaling_matrix.shape[1]:
-            return type(variables)(scale_action(variables, self.inv_herm_mult))
+            return type(variables)(scale_action(variables, self.inv_herm_mult(indep_var_index=indep_var_index)))
         elif len(variables) == self.scaling_matrix.shape[1] - 1:
-            return type(variables)(scale_action(variables, self.dep_var_inv_herm_mult))
+            return type(variables)(scale_action(variables, self.dep_var_inv_herm_mult(indep_var_index=indep_var_index)))
         else:
             raise ValueError('Incorrect number of variables for reverse translation')
 

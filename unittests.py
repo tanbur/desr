@@ -216,7 +216,7 @@ class TestODESystemScaling(TestCase):
         ## Test reverse translating
         t_var, c1_var, c2_var = sympy.var('t c1 c2')
         reduced_soln = (c2_var*sympy.exp(t_var+c1_var*(1-t_var)*sympy.exp(t_var)), c1_var * t_var * sympy.exp(t_var))
-        orig_soln = translation.reverse_translate_dep_var(reduced_soln)
+        orig_soln = translation.reverse_translate_dep_var(reduced_soln, system.indep_var_index)
         self.assertTupleEqual(orig_soln, (reduced_soln[0], reduced_soln[1] / reduced_soln[0]))
 
         ## Check our answer hasn't changed, using our own Hermite multiplier
