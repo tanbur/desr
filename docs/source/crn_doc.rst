@@ -77,7 +77,7 @@ Otherwise, we have an entirely equivalent way of constructing CRNs and their ass
 Reference
 ---------
 
-.. automodule:: chemical_reaction_network
+.. automodule:: desr.chemical_reaction_network
     :members:
     :undoc-members:
     :show-inheritance:

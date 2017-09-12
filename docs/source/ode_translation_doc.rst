@@ -1,7 +1,13 @@
 ODETranslation and Reduction of ODESystems
 ==========================================
 
-The ODETranslation is the class we use to represent the scaling symmetries of a system.
+The ODETranslation is the class used to represent the scaling symmetries of a system.
 
-.. automodule:: ode_translation
-	:members:
+Creating ODE Translations
+-------------------------
+
+
+.. automodule:: desr.ode_translation
+    :members:
+    :undoc-members:
+    :show-inheritance:
