@@ -2,7 +2,7 @@ import itertools
 import sympy
 from unittest import TestCase, main
 
-from hermite_helper import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col, hnf_row
+from matrix_normal_forms import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col, hnf_row
 from ode_system import ODESystem
 from ode_translation import ODETranslation
 from chemical_reaction_network import ChemicalReactionNetwork, ChemicalSpecies, Complex, Reaction

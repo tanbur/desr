@@ -4,7 +4,7 @@ import re
 import sympy
 from sympy.abc import _clash1
 
-from hermite_helper import hnf_col, hnf_row, normal_hnf_col
+from matrix_normal_forms import hnf_col, hnf_row, normal_hnf_col
 from sympy_helper import expressions_to_variables, unique_array_stable, monomial_to_powers
 from tex_tools import expr_to_tex, var_to_tex, tex_to_sympy
 

@@ -5,7 +5,7 @@ This example script walks through a possible analysis of the Michael Mentis equa
 
 """
 import sympy
-from desr.hermite_helper import smf
+from desr.matrix_normal_forms import smf
 from desr.ode_system import ODESystem
 from desr.ode_translation import ODETranslation, scale_action
 from desr.tex_tools import expr_to_tex
