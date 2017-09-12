@@ -12,9 +12,9 @@ class ODESystem(object):
     '''
     A system of differential equations.
 
-    The main attributes are :attr:`~variables` and :attr:`~derivatives`.
-    :attr:`~variables` is an ordered tuple of non-constant variables, which includes the independent variable.
-    :attr:`~derivatives` is an ordered tuple of the same length that contains the derivatives with respect to :attr:`~indep_var`.
+    The main attributes are :attr:`~desr.ode_system.ODESystem.variables` and :attr:`~desr.ode_system.ODESystem.derivatives`.
+    :attr:`~desr.ode_system.ODESystem.variables` is an ordered tuple of non-constant variables, which includes the independent variable.
+    :attr:`~desr.ode_system.ODESystem.derivatives` is an ordered tuple of the same length that contains the derivatives with respect to :attr:`~desr.ode_system.ODESystem.indep_var`.
 
     Args:
         variables (tuple of sympy.Symbol): Ordered tuple of variables.

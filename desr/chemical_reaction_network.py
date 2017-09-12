@@ -57,6 +57,15 @@ class Complex(MutableMapping):
         self._species_dict.__delitem__(key)
 
     def as_vector(self, variable_order):
+        '''
+        Represent the complex as a vector with respect to a given variable order.
+
+        Args:
+            variable_order (iter):
+                Iterable of :class:`~ChemicalSpecies`'s.
+
+        :rtype: tuple
+        '''
         return tuple([self._species_dict.get(variable, 0) for variable in variable_order])
 
 class Reaction(object):
