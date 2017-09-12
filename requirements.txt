@@ -1,0 +1,10 @@
+#
+## Requirements for desr
+#
+
+# Python dependencies
+sympy >= 1.0
+
+# Sphinx dependencies
+Sphinx
+sphinxcontrib-bibtex
