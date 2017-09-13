@@ -111,6 +111,18 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
+# -- Options for doctest ----------------------------------------------
+# Import files for  doctests
+doctest_global_setup = '''
+import sympy
+from desr.ode_system import *
+from desr.ode_translation import *
+from desr.matrix_normal_forms import *
+from desr.diophantine import *
+from desr.chemical_reaction_network import *
+from desr.tex_tools import *
+from desr.sympy_helper import *
+'''
 
 # -- Options for HTML output ----------------------------------------------
 
