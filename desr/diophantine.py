@@ -63,11 +63,9 @@ def solve(A, b):
     is a M x N matrix of coefficents, b is a M x 1 vector and x is the
     N x 1 solution vector, e.g.
 
-    >>> from sympy import Matrix
-    >>> from diophantine import solve
-    >>> A = Matrix([[1, 0, 0, 2], [0, 2, 3, 5], [2, 0, 3, 1], [-6, -1, 0, 2],
-                    [0, 1, 1, 1], [-1, 2, 0,1], [-1, -2, 1, 0]]).T
-    >>> b = Matrix([1, 1, 1, 1])
+    >>> A = sympy.Matrix([[1, 0, 0, 2], [0, 2, 3, 5], [2, 0, 3, 1], [-6, -1, 0, 2],
+    ...                 [0, 1, 1, 1], [-1, 2, 0,1], [-1, -2, 1, 0]]).T
+    >>> b = sympy.Matrix([1, 1, 1, 1])
     >>> solve(A, b)
     [Matrix([
     [-1],

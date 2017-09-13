@@ -50,7 +50,7 @@ def var_to_tex(var):
         str
 
     >>> print map(var_to_tex, sympy.symbols('x y_1 Kw_3 z_{3} k_m1'))
-    ['x', 'y_{1}', 'Kw_{3}', 'z_{3}', 'k_{-1}}']
+    ['x', 'y_{1}', 'Kw_{3}', 'z_{3}', 'k_{-1}']
     """
     return expr_to_tex(var)
 
@@ -96,8 +96,6 @@ def tex_to_sympy(tex):
 
     Returns:
         list
-
-
 
     >>> lines = ['\\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\\\',
     ... '\\frac{dS}{dt} &= - k_1 E S + k_{-1} C \\\\',
