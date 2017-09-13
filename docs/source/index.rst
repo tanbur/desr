@@ -19,6 +19,8 @@ Contents:
    crn_doc
    examples
 
+   zbibliography
+
 
 Indices and tables
 ==================

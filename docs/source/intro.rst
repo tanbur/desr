@@ -47,5 +47,3 @@ Acknowledgments
 
 - Dr Heather Harrington and Dr Emilie Dufresne for their supervision of the dissertation.
 - Thomas Close for writing his diophantine module, which is included in this package.
-
-.. bibliography:: desr.bib

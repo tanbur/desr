@@ -27,12 +27,3 @@ There are a number of useful ways to output the system.
 
 .. autoattribute:: desr.ode_system.ODESystem.derivative_dict
 .. automethod:: desr.ode_system.ODESystem.to_tex
-
-
-Reference
----------
-
-.. automodule:: desr.ode_system
-    :members:
-    :undoc-members:
-    :show-inheritance:

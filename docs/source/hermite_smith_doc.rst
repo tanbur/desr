@@ -22,5 +22,3 @@ diophantine.py
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. bibliography:: ../desr.bib

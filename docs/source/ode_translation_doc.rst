@@ -23,6 +23,7 @@ Reverse Translation
 Reverse translation is the process of taking solutions of the reduced system and recovering solutions of the original system.
 
 .. automethod:: desr.ode_translation.ODETranslation.reverse_translate
+.. automethod:: desr.ode_translation.ODETranslation.reverse_translate_parameter
 .. automethod:: desr.ode_translation.ODETranslation.reverse_translate_dep_var
 .. automethod:: desr.ode_translation.ODETranslation.reverse_translate_general
 
@@ -44,11 +45,11 @@ Output Functions
 
 .. automethod:: desr.ode_translation.ODETranslation.to_tex
 
+Advanced Methods
+----------------
 
-Reference
----------
+These methods will be familiar to those who use Lie groups to analyse more general symmetries of differential equations.
+For more information, see :cite:`Fels1999` or :cite:`Hubert2007`.
 
-.. automodule:: desr.ode_translation
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. automethod:: desr.ode_translation.ODETranslation.moving_frame
+.. automethod:: desr.ode_translation.ODETranslation.rational_section
