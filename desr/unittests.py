@@ -150,7 +150,7 @@ class TestODESystemScaling(TestCase):
     ''' Test ode_system.py scaling methods '''
 
     def test_example_pred_prey_hub_lab(self):
-        ''' Predator prey model from Hubert Labahn Scaling symmetries paper
+        ''' Predator prey model from :cite:`Hubert2013c`
             dn/dt = n( r(1 - n/K) - kp/(n+d) )
             dp/dt = sp(1 - hp / n)
         '''
@@ -181,7 +181,7 @@ class TestODESystemScaling(TestCase):
 
 
     def test_example_6_4_hub_lab(self):
-        ''' Predator prey model from Hubert Labahn Scaling symmetries paper
+        ''' Predator prey model from :cite:`Hubert2013c`, example 6.4
             dz1/dt = z1*(1+z1*z2)
             dz2/dt = z2*(1/t - z1*z2)
         '''
@@ -226,7 +226,7 @@ class TestODESystemScaling(TestCase):
         self.assertEqual(translated, answer)
 
     def test_example_6_6_hub_lab(self):
-        ''' Example 6.6 from Hubert Labahn Scaling symmetries paper, where we act on time
+        ''' Example 6.6 from :cite:`Hubert2013c`, where we act on time
             dz1/dt = z1*(z1**5*z2 - 2)/(3*t)
             dz2/dt = z2*(10 - 2*z1**5*z2 + 3*z1**2*z2/t )/(3*t)
         '''
@@ -277,7 +277,7 @@ class TestODESystemScaling(TestCase):
 
 
     def test_verhulst_log_growth(self):
-        ''' Verhult logistic growth model from Hubert Labahn Scaling symmetries paper
+        ''' Verhult logistic growth model from :cite:`Hubert2013c`
             dn/dt = r*n*(1-n/k)
         '''
         equations = '''dn/dt = r*n*(1-n/k)'''
@@ -324,7 +324,7 @@ class TestODESystemScaling(TestCase):
         self.assertTupleEqual(general_soln, saved_soln)
 
     def test_example_pred_prey_choosing_invariants(self):
-        ''' Predator prey model from Hubert Labahn Scaling symmetries paper
+        ''' Predator prey model from :cite:`Hubert2013c`
             dn/dt = n( r(1 - n/K) - kp/(n+d) )
             dp/dt = sp(1 - hp / n)
 
