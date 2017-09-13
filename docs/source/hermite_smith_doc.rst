@@ -7,18 +7,35 @@ matrix_normal_forms should be used for all normal form calculations - we never c
 
 This is also where the Smith normal form functions live, which use Hermite normal forms at their core.
 
-matrix_normal_forms.py
-----------------------
+Hermite Normal Forms
+--------------------
 
-.. automodule:: desr.matrix_normal_forms
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autofunction:: desr.matrix_normal_forms.is_hnf_row
+    :noindex:
 
-diophantine.py
---------------
+.. autofunction:: desr.matrix_normal_forms.is_hnf_col
+    :noindex:
 
-.. automodule:: desr.diophantine
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autofunction:: desr.matrix_normal_forms.hnf_row
+    :noindex:
+
+.. autofunction:: desr.matrix_normal_forms.hnf_col
+    :noindex:
+
+.. autofunction:: desr.matrix_normal_forms.normal_hnf_row
+    :noindex:
+
+.. autofunction:: desr.matrix_normal_forms.normal_hnf_col
+    :noindex:
+
+Smith Normal Form
+-----------------
+
+.. autofunction:: desr.matrix_normal_forms.is_smf
+    :noindex:
+
+.. autofunction:: desr.matrix_normal_forms.smf
+    :noindex:
+
+
+

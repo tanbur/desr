@@ -73,11 +73,3 @@ This can be done like so:
 
 Note that :code:`k_3_2` has become :code:`k_2_3` since complex order is automatically determined when feeding in a diagram.
 Otherwise, we have an entirely equivalent way of constructing CRNs and their associated dynamical systems.
-
-Reference
----------
-
-.. automodule:: desr.chemical_reaction_network
-    :members:
-    :undoc-members:
-    :show-inheritance:
