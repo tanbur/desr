@@ -493,64 +493,6 @@ class ODETranslation(object):
 
         return to_sub
 
-    def reverse_translate_parameter_substitutions(self, system):
-        '''
-        Args:
-            system (ODESystem): The *reduced* system.
-
-        Returns:
-            dict:
-                The substitutions needed to reverse translate.
-
-        >>> equations = 'dn/dt = n*( r*(1 - n/K) - k*p/(n+d) );dp/dt = s*p*(1 - h*p / n)'.split(';')
-        >>> system = ODESystem.from_equations(equations)
-        >>> translation = ODETranslation.from_ode_system(system)
-        >>> reduced = translation.translate_parameter(system)
-        >>> translation.reverse_translate_parameter_substitutions(system=reduced)
-        {k: 1, n: n, r: c2, d: 1, K: c0, h: c1, s: 1, p: p, t: t}
-        '''
-        num_variables = len(system.variables) - system.num_constants - 1  # Excluding indep
-        m = num_variables + 1  # Include indep
-
-        if not self._is_translate_parameter_compatible(system):
-            err_str = ['System is not compatible for parameter translation.']
-            err_str.append('System may not be ordered properly. Must be independent, dependent, constants. Order is: {}'.format(system.variables))
-            err_str.append('Transformation may not be appropriate. Should be 0, I, 0. Transformation is:')
-            err_str.append(repr(self.herm_mult_i[:m, :]))
-            err_str.append(repr(self.herm_mult_n[:m, :m]))
-            err_str.append(repr(self.herm_mult_n[:m, m:]))
-            raise ValueError('\n'.join(err_str))
-
-        # Extract the right bits of V
-        herm_mult_n = self.herm_mult_n[m:, :]
-        V_t = herm_mult_n[:, :1]
-        V_v = herm_mult_n[:, 1:m]
-        V_c = herm_mult_n[:, m:]
-
-        # Form new constants
-        new_const = ['c{}'.format(i) for i in xrange(system.num_constants - self.r)]
-        new_const = map(sympy.sympify, new_const)
-
-        old_const = system.constant_variables
-        to_sub = {}
-
-        # Scale t
-        to_sub[system.indep_var] = scale_action(old_const, V_t)[0] * system.indep_var
-
-        # Scale dependents
-        const_scale = scale_action(old_const, V_v)
-        assert len(system.variables[1:num_variables + 1]) == len(const_scale.T)
-        for dep_var, _const_scale in zip(system.variables[1:num_variables + 1], const_scale.T):
-            to_sub[dep_var] = _const_scale * dep_var
-
-        # Scale constants
-        const_scale = scale_action(old_const, V_c)
-        assert len(new_const) == len(const_scale.T)
-        for _new_const, _const_scale in zip(new_const, const_scale.T):
-            to_sub[_new_const] = _const_scale
-
-        return to_sub
-
     def translate_parameter(self, system):
         ''' Translate according to parameter scheme '''
         to_sub = self.translate_parameter_substitutions(system=system)
@@ -564,7 +506,23 @@ class ODETranslation(object):
         return ODESystem.from_dict(new_deriv_dict)
 
     def reverse_translate(self, variables):
-        ''' Given an iterable of variables, attempt to reverse translate '''
+        """
+        Given the solutions of a reduced system, reverse translate them into solutions of the original system.
+
+        Note:
+            This *doesn't* reverse translate the parameter reduction scheme.
+
+            It *only* guesses between :meth:`~desr.ode_translation.ODETranslation.reverse_translate_general`
+            and :meth:`~desr.ode_translation.ODETranslation.reverse_translate_dep_var`
+
+        Args:
+            variables (iter of sympy.Expression): The solution auxiliary variables :math:`x(t)` and solution invariants
+                :math:`y(t)` of the reduced system.
+                Variables should be ordered auxiliary variables followed by invariants.
+            indep_var_index (int): The location of the independent variable.
+
+        :rtype: tuple
+        """
         if len(variables) == self.scaling_matrix.shape[1]:
             return self.reverse_translate_dep_var(variables=variables)
         elif len(variables) == self.scaling_matrix.shape[1] - 1:
@@ -574,8 +532,106 @@ class ODETranslation(object):
         else:
             raise ValueError('Incorrect number of variables for reverse translation')
 
+    def reverse_translate_parameter(self, variables):
+        '''
+        Given the solutions of a reduced system, reverse translate them into solutions of the original system.
+
+        Args:
+            variables (iter of sympy.Expression):
+                :math:`r` constants (auxiliary variables) followed by the independent, dependent and invariant constants.
+
+        Example 7.5 (Prey-predator model) from :cite:`Hubert2013c`.
+
+        Use the matrices from the paper, which differ to ours as different conventions are used.
+
+        .. math::
+            \\frac{dn}{dt} = n  \\left( r \\left(1 - \\frac{n}{K} \\right) - \\frac{k p}{n + d} \\right)
+
+            \\frac{dp}{dt} = s p \\left(1 - \\frac{h p}{n} \\right)
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> system.variables
+        (t, n, p, K, d, h, k, r, s)
+        >>> maximal_scaling_matrix = system.maximal_scaling_matrix()
+        >>> # Hand craft a Hermite multiplier given the invariants from the paper.
+        >>> # This is done by placing the auxiliaries first, then rearranging the invariants and reading them off
+        >>> # individually from the Hermite multiplier given in the paper
+        >>> herm_mult = sympy.Matrix([[ 0, 0,  0,  1,  0,  0,  0,  0,  0],  # t
+        ...                           [ 0, 0,  0,  0,  1,  0,  0,  0,  0],  # n
+        ...                           [ 0, 0,  0,  0,  0,  1,  0,  0,  0],  # p
+        ...                           [ 0, 1,  1,  0, -1, -1, -1,  0,  0],  # K
+        ...                           [ 0, 0,  0,  0,  0,  0,  1,  0,  0],  # d
+        ...                           [ 0, 0, -1,  0,  0,  1,  0, -1,  0],  # h
+        ...                           [ 0, 0,  0,  0,  0,  0,  0,  1,  0],  # k
+        ...                           [-1, 0,  0,  1,  0,  0,  0, -1, -1],  # r
+        ...                           [ 0, 0,  0,  0,  0,  0,  0,  0,  1]])  # s
+        >>> translation = ODETranslation(maximal_scaling_matrix,
+        ...                              variables_domain=system.variables,
+        ...                              hermite_multiplier=herm_mult)
+        >>> translation.translate_parameter(system)
+        dt/dt = 1
+        dn/dt = n*(-c1*p/(c0 + n) - n + 1)
+        dp/dt = c2*p*(1 - p/n)
+        dc0/dt = 0
+        dc1/dt = 0
+        dc2/dt = 0
+        >>> translation.translate_parameter_substitutions(system)
+        {k: c1, n: n, r: 1, d: c0, K: 1, h: 1, s: c2, p: p, t: t}
+        >>> soln_reduced = sympy.var('x1, x2, x3, t, n, p, c0, c1, c2')
+        >>> translation.reverse_translate_parameter(soln_reduced)
+        Matrix([[t*x1, n*x2, p*x3, x2, c0*x2, x2/x3, c1*x2/(x1*x3), 1/x1, c2/x1]])
+        '''
+        return scale_action(variables, self.inv_herm_mult)
+
     def reverse_translate_dep_var(self, variables, indep_var_index):
-        ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
+        '''
+        Given the solutions of a (dep_var) reduced system, reverse translate them into solutions of the original system.
+
+        Args:
+            variables (iter of sympy.Expression): The solution auxiliary variables :math:`x(t)` and solution invariants
+                :math:`y(t)` of the reduced system.
+                Variables should be ordered auxiliary variables followed by invariants.
+            indep_var_index (int): The location of the independent variable.
+
+        :rtype: tuple
+
+        Example 6.4 from :cite:`Hubert2013c`.
+        We will just take the matrices from the paper, rather than use our own
+        (which are constructed using different conventions).
+
+        .. math::
+            \\frac{dz_1}{dt} = z_1 \\left( 1+ z_1 z_2 \\right)
+
+            \\frac{dz_2}{dt} = z_2 \\left(\\frac{1}{t} - z_1 z_2 \\right)
+
+        >>> equations = 'dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> var_order = ['t', 'z1', 'z2']
+        >>> system.reorder_variables(var_order)
+        >>> scaling_matrix = sympy.Matrix([[0, 1, -1]])
+        >>> hermite_multiplier = sympy.Matrix([[0, 1, 0],
+        ...                                    [1, 0, 1],
+        ...                                    [0, 0, 1]])
+        >>> translation = ODETranslation(scaling_matrix=scaling_matrix,
+        ...                              hermite_multiplier=hermite_multiplier)
+        >>> reduced = translation.translate_dep_var(system)
+        >>> # Check reduction
+        >>> answer = ODESystem.from_equations('dx0/dt = x0*(y0 + 1);dy0/dt = y0*(1 + 1/t)'.split(';'))
+        >>> reduced == answer
+        True
+        >>> reduced
+        dt/dt = 1
+        dx0/dt = x0*(y0 + 1)
+        dy0/dt = y0*(1 + 1/t)
+        >>> t_var, c1_var, c2_var = sympy.var('t c1 c2')
+        >>> reduced_soln = (c2_var*sympy.exp(t_var+c1_var*(1-t_var)*sympy.exp(t_var)),
+        ...                 c1_var * t_var * sympy.exp(t_var))
+        >>> original_soln = translation.reverse_translate_dep_var(reduced_soln, system.indep_var_index)
+        >>> original_soln == (reduced_soln[0], reduced_soln[1] / reduced_soln[0])
+        True
+        >>> original_soln
+        (c2*exp(c1*(-t + 1)*exp(t) + t), c1*t*exp(t)*exp(-c1*(-t + 1)*exp(t) - t)/c2)
         '''
         if len(variables) == self.scaling_matrix.shape[1]:
             return type(variables)(scale_action(variables, self.inv_herm_mult(indep_var_index=indep_var_index)))
@@ -586,8 +642,73 @@ class ODETranslation(object):
 
 
     def reverse_translate_general(self, variables, system_indep_var_index=0):
-        ''' Given an iterable of variables, or exprs, reverse translate into the original variables.
-            Here we expect t as the first variable, since we need to divide by it and substitute
+        '''
+        Given an iterable of variables, or exprs, reverse translate into the original variables.
+        Here we expect t as the first variable, since we need to divide by it and substitute
+
+
+        Given the solutions of a (general) reduced system, reverse translate them into solutions of the original system.
+
+        Args:
+            variables (iter of sympy.Expression): The independent variable :math:`t`,
+                the solution auxiliary variables :math:`x(t)` and
+                the solution invariants :math:`y(t)` of the reduced system.
+                Variables should be ordered: independent variable, auxiliary variables then invariants.
+            indep_var_index (int): The location of the independent variable.
+
+        :rtype: tuple
+
+        Example 6.6 from :cite:`Hubert2013c`.
+        We will just take the matrices from the paper, rather than use our own
+        (which are constructed using different conventions).
+
+        .. math::
+            \\frac{dz_1}{dt} = \\frac{z_1 \\left(z_1^5 z_2 - 2 \\right)}{3t}
+
+            \\frac{dz_2}{dt} = \\frac{z_2 \\left(10 - 2 z_1^5 z_2 + \\frac{3 z_1^2 z_2}{t} \\right)}{3t}
+
+        >>> equations = ['dz1/dt = z1*(z1**5*z2 - 2)/(3*t)',
+        ...              'dz2/dt = z2*(10 - 2*z1**5*z2 + 3*z1**2*z2/t )/(3*t)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> var_order = ['t', 'z1', 'z2']
+        >>> system.reorder_variables(var_order)
+        >>> scaling_matrix = sympy.Matrix([[3, -1, 5]])
+        >>> hermite_multiplier = sympy.Matrix([[1, 1, -1],
+        ...                                    [2, 3, 2],
+        ...                                    [0, 0, 1]])
+        >>> translation = ODETranslation(scaling_matrix=scaling_matrix,
+        ...                              hermite_multiplier=hermite_multiplier)
+        >>> reduced = translation.translate_general(system)
+        >>> # Quickly check the reduction
+        >>> answer = ODESystem.from_equations(['dx0/dt = x0*(2*y0*y1/3 - 1/3)/t',
+        ...                                    'dy0/dt = y0*(y0*y1 - 1)/t',
+        ...                                    'dy1/dt = y1*(y1 + 1)/t'])
+        >>> reduced == answer
+        True
+        >>> reduced
+        dt/dt = 1
+        dx0/dt = x0*(2*y0*y1/3 - 1/3)/t
+        dy0/dt = y0*(y0*y1 - 1)/t
+        dy1/dt = y1*(y1 + 1)/t
+
+        Check reverse translation:
+
+        >>> reduced_soln = (sympy.var('t'),
+        ...                 sympy.sympify('c3/(t**(1/3)*(ln(t-c1)-ln(t)+c2)**(2/3))'),  # x
+        ...                 sympy.sympify('c1/(t*(ln(t-c1)-ln(t)+c2))'),  # y1
+        ...                 sympy.sympify('t/(c1 - t)'))  # y2
+        >>> original_soln = translation.reverse_translate_general(reduced_soln, system.indep_var_index)
+        >>> original_soln_answer = [#reduced_soln[1] ** 3 / (reduced_soln[2] ** 2)  # x^3 / y1^2
+        ...                         reduced_soln[2] / reduced_soln[1],  # y1 / x
+        ...                         reduced_soln[1] ** 5 * reduced_soln[3] / reduced_soln[2] ** 4]  # x^5 y2 / y1^4
+        >>> original_soln_answer = tuple([soln.subs({sympy.var('t'): sympy.sympify('t / (c3**3 / c1**2)')})
+        ...                               for soln in original_soln_answer])
+        >>> original_soln == original_soln_answer
+        True
+        >>> original_soln[0]
+        c1/(c3*(c1**2*t/c3**3)**(2/3)*(c2 - log(c1**2*t/c3**3) + log(c1**2*t/c3**3 - c1))**(1/3))
+        >>> original_soln[1]
+        c3**5*(c1**2*t/c3**3)**(10/3)*(c2 - log(c1**2*t/c3**3) + log(c1**2*t/c3**3 - c1))**(2/3)/(c1**4*(-c1**2*t/c3**3 + c1))
         '''
         if len(variables) != self.scaling_matrix.shape[1] + 1:
             raise ValueError('Incorrect number of variables for reverse translation')
@@ -609,11 +730,12 @@ class ODETranslation(object):
 
         to_sub = {indep_var: indep_var / indep_const}
         solns = [soln.subs(to_sub) for soln in raw_solutions]
-        return type(variables)(solns)
+        return tuple(solns)
 
     def _validate_variables(self, variables, num_var, stem, use_domain_var):
-        ''' Make sure we have the right number of variables if given, else make
-            them up
+        '''
+        Make sure we have the right number of variables if given, else make them up.
+        If use_domain_var is True, then use the domain variables before making up new ones.
         '''
         if variables is None:
             if use_domain_var and (self.variables_domain is not None):
@@ -626,17 +748,66 @@ class ODETranslation(object):
         return variables
 
     def invariants(self, variables=None):
-        ''' Give the invariants of the system'''
+        '''
+        The invariants of the system, as determined by :attr:`~desr.ode_translation.ODETranslation.herm_mult_n`.
+
+        Returns:
+            tuple: The invariants of the system, in terms of :attr:`~desr.ode_translation.ODETranslation.variables_domain` if not :code:`None`.
+                Otherwise, use :code:`variables` and failing that use :math:`y_i`.
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.invariants()
+        Matrix([[s*t, n/d, k*p/(d*s), K/d, h*s/k, r/s]])
+        '''
         variables = self._validate_variables(variables, self.n, 'y', True)
         return scale_action(variables, self.herm_mult_n)
 
     def auxiliaries(self, variables=None):
-        ''' Return the auxiliary variables '''
+        '''
+        The auxiliary variables of the system, as determined by :attr:`~desr.ode_translation.ODETranslation.herm_mult_i`.
+
+        Returns:
+            tuple: The auxiliary variables of the system,
+                in terms of :attr:`~desr.ode_translation.ODETranslation.variables_domain` if not :code:`None`.
+                Otherwise, use :code:`variables` and failing that use :math:`x_i`.
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.auxiliaries()
+        Matrix([[1/s, d, d*s/k]])
+        '''
         variables = self._validate_variables(variables, self.n, 'x', True)
         return scale_action(variables, self.herm_mult_i)
 
     def rewrite_rules(self, variables=None):
-        ''' Given a set of variables, print the rewrite rules '''
+        '''
+        Given a set of variables, print the rewrite rules.
+        These are the rules that allow you to write any rational invariant in terms of the
+        :attr:`~desr.ode_translation.ODETranslation.invariants`.
+
+        Args:
+            variables (iter of sympy.Symbol):
+                The names of the variables appearing in the rational invariant.
+
+        Returns:
+            dict:
+                A :code:`dict` whose keys are the given variables and whose values are the values to be substituted.
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.rewrite_rules()
+        {k: 1, n: n/d, r: r/s, d: 1, K: K/d, h: h*s/k, s: 1, p: k*p/(d*s), t: s*t}
+
+        For example, :math:`r t` is an invariant.
+        Substituting in the above mapping gives us a way to write it in terms of our generating set of invariants:
+
+        .. math::
+            r t \\mapsto \\left( \\frac{r}{s} \\right) \\left( s t \\right) = r t
+        '''
         variables = self._validate_variables(variables, self.n, 'z', True)
 
         rules = scale_action(variables, self.herm_mult_n * self.inv_herm_mult_d).T
@@ -645,30 +816,105 @@ class ODETranslation(object):
         # Create a dict of rules
         rules = dict(zip(variables, rules))
 
-        # Now print
-        for var in variables:
-            print '{}\t|-->\t{}'.format(var, rules[var])
-
+        return rules
 
     def moving_frame(self, variables=None):
-        ''' Given a set of variables, print the rewrite rules '''
+        '''
+        Given a finite-dimensional Lie group :math:`G` acting on a manifold :math:`M`,
+        a moving frame is defined as a :math:`G`-equivariant map :math:`\\rho : M \\rightarrow G`.
+
+        We can construct a moving frame given a rational section,
+        by sending a point :math:`x \\in M` to the Lie group element
+        :math:`\\rho ( x )` such that :math:`\\rho ( x ) \\cdot x` lies on :math:`K`.
+
+
+        >>> equations = 'dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> moving_frame = translation.moving_frame()
+        >>> moving_frame
+        (z2,)
+
+        Now we can check that the moving frame moves a point to the cross-section.
+
+        >>> translation.rational_section()
+        Matrix([[1 - 1/z2]])
+        >>> scale_action(moving_frame, translation.scaling_matrix)  # \\rho(x)
+        Matrix([[1, z2, 1/z2]])
+        >>> # :math:`\\rho(x).x` should satisfy the equations of the rational section.
+        >>> scale_action(moving_frame, translation.scaling_matrix).multiply_elementwise(sympy.Matrix(system.variables).T)
+        Matrix([[t, z1*z2, 1]])
+
+
+        Another example:
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> moving_frame = translation.moving_frame()
+        >>> moving_frame
+        (s, 1/d, k/(d*s))
+
+        Now we can check that the moving frame moves a point to the cross-section.
+
+        >>> translation.rational_section()
+        Matrix([[1 - 1/s, d - 1, d*s - 1/k]])
+        >>> scale_action(moving_frame, translation.scaling_matrix)  # \\rho(x)
+        Matrix([[s, 1/d, k/(d*s), 1/d, 1/d, s/k, 1/k, 1/s, 1/s]])
+        >>> # :math:`\\rho(x).x` should satisfy the equations of the rational section.
+        >>> scale_action(moving_frame, translation.scaling_matrix).multiply_elementwise(sympy.Matrix(system.variables).T)
+        Matrix([[s*t, n/d, k*p/(d*s), K/d, 1, h*s/k, 1, r/s, 1]])
+
+        See :cite:`Fels1999` for more details.
+        '''
         variables = self._validate_variables(variables, self.n, 'z', True)
 
         rules = scale_action(variables, - self.herm_mult_i)
         assert len(rules) == self.r
-        print '{}\t->\t{}'.format(tuple(variables), tuple(rules))
+        return tuple(rules)
 
-    def rational_section(self, variables):
-        ''' Give the polynomials defining the moving frame '''
+    def rational_section(self, variables=None):
+        '''
+        Given a finite-dimensional Lie group :math:`G` acting on a manifold :math:`M`,
+        a cross-section :math:`K \\subset M` is a subset
+        that intersects each orbit of :math:`M` in exactly one place.
+
+        Args:
+            variables (iter of sympy.Symbol, optional):
+                Variables of the system.
+
+        Returns:
+            sympy.Matrix:
+                A set of equations defining a variety that is a cross-section.
+
+        >>> equations = 'dz1/dt = z1*(1+z1*z2);dz2/dt = z2*(1/t - z1*z2)'.split(';')
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.rational_section()
+        Matrix([[1 - 1/z2]])
+
+
+        >>> equations = ['dn/dt = n*( r*(1 - n/K) - k*p/(n+d) )','dp/dt = s*p*(1 - h*p / n)']
+        >>> system = ODESystem.from_equations(equations)
+        >>> translation = ODETranslation.from_ode_system(system)
+        >>> translation.rational_section()
+        Matrix([[1 - 1/s, d - 1, d*s - 1/k]])
+
+
+        See :cite:`Fels1999` for more details.
+        '''
         variables = self._validate_variables(variables, self.n, 'z', True)
 
+        # Positive values of Vi
         vip = self.herm_mult_i
-        vip[vip < 0] = 0
+        vip = vip.applyfunc(lambda x: x if x > 0 else 0)
+        # vip[vip < 0] = 0
 
-        vim = self.herm_mult_i
-        vim[vim > 0] = 0
+        # Negative values of Vi
+        vin = self.herm_mult_i
+        vin = vin.applyfunc(lambda x: x if x < 0 else 0)
 
-        rational_section = scale_action(variables, vip) - scale_action(variables, vim)
+        rational_section = scale_action(variables, vip) - scale_action(variables, vin)
         print rational_section
 
     ## Choosing invariants
@@ -765,6 +1011,17 @@ def scale_action(vect, scaling_matrix):
     Given a vector of sympy expressions, determine the action defined by scaling_matrix
     I.e. Given vect, calculate vect^scaling_matrix (in notation of Hubert Labahn).
 
+    Args:
+        vect (iter of sympy.Expression):
+            Element of the algebraic torus that is going to act on the system.
+        scaling_matrix (sympy.Matrix):
+            Matrix that defines the action on the system.
+
+    Returns:
+        sympy.Matrix:
+            Matrix that, when multiplied element-wise with an element of the manifold, gives the result of the action.
+
+
     Example 3.3
 
     >>> x = sympy.var('x')
@@ -792,10 +1049,9 @@ def extend_rectangular_matrix(matrix_, check_unimodular=True):
     """
     Given a rectangular :math:`n \\times m` integer matrix, extend it to a unimodular one by appending columns.
 
-
     Parameters
     ----------
-    matrix_
+    matrix_ : sympy.Matrix
         The rectangular matrix to be extended.
 
 
