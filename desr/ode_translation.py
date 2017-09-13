@@ -25,15 +25,17 @@ def _int_inv(matrix_):
 class ODETranslation(object):
     '''
     An object used for translating between systems of ODEs according to a scaling matrix.
-    The key data are :attr:`~scaling_matrix` and :attr:`~herm_mult`, which together contain all the information needed
-    (along with a variable order) to reduce an :class:`ode_system.ODESystem`.
+    The key data are :attr:`~desr.ode_translation.ODETranslation.scaling_matrix` and
+    :attr:`~desr.ode_translation.ODETranslation.herm_mult`, which together contain all the information needed
+    (along with a variable order) to reduce an :class:`~desr.ode_system.ODESystem`.
 
     Args:
         scaling_matrix (sympy.Matrix): Matrix that defines the torus action on the system.
         variables_domain (iter of sympy.Symbol, optional): An ordering of the variables we expect to act upon.
             If this is not given, we will act on a system according to the position of the variables in
-            :attr:`ode_system.ODESystem.variables`, as long as there is the correct number of variables.
-        hermite_multiplier (sympy.Matrix, optional): User-defined Hermite multiplier, that puts :attr:`~scaling_matrix` into
+            :attr:`~desr.ode_system.ODESystem.variables`, as long as there is the correct number of variables.
+        hermite_multiplier (sympy.Matrix, optional): User-defined Hermite multiplier, that puts
+            :attr:`~desr.ode_translation.ODETranslation.scaling_matrix` into
             column Hermite normal form.
             If not given, the normal Hermite multiplier will be calculated.
     '''
