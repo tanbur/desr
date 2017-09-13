@@ -3,7 +3,7 @@ Created on Fri Dec 26 12:35:16 2014
 
 Helper functions to deal with sympy expressions and equations
 
-@author: Richard Tanburn
+Author: Richard Tanburn (richard.tanburn@gmail.com)
 """
 
 import fractions
@@ -269,6 +269,7 @@ def is_equation(eqn, check_true=True):
         True
 
         Now check that it raises exceptions for the right things
+
         >>> is_equation(0)
         False
         >>> is_equation(False)

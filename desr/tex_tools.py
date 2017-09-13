@@ -1,7 +1,7 @@
 """
 Created on Wed Aug 12 01:37:16 2015
 
-@author: richard
+Author: Richard Tanburn (richard.tanburn@gmail.com)
 """
 
 import re
@@ -93,13 +93,17 @@ def tex_to_sympy(tex):
 
     Args:
         tex (str): LaTeX
+
     Returns:
         list
 
-    >>> sym = tex_to_sympy(r'\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\
-    ...   \frac{dS}{dt} &= - k_1 E S + k_{-1} C \\
-    ... \frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\
-    ... \frac{dP}{dt} &= k_2 C')
+
+
+    >>> lines = ['\\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\\\',
+    ... '\\frac{dS}{dt} &= - k_1 E S + k_{-1} C \\\\',
+    ... '\\frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\\\',
+    ... '\\frac{dP}{dt} &= k_2 C']
+    >>> sym = tex_to_sympy('\\n'.join(lines))
     >>> for s in sym: print s
     Eq(Derivative(E, t), C*k_2 + C*k_m1 - E*S*k_1)
     Eq(Derivative(S, t), C*k_m1 - E*S*k_1)
