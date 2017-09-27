@@ -17,7 +17,7 @@ Contents:
    ode_system_doc
    ode_translation_doc
    crn_doc
-   examples
+   examples/example_index
 
    module_reference
 
