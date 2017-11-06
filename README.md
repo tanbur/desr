@@ -13,7 +13,9 @@ This package requires the Sympy package.
 
 ### Installing
 
-Simply download this repository and add the path to your PYTHONPATH.
+To install, download the package and run:
+
+`$ python setup.py install`
 
 ## Running the tests
 
