@@ -400,6 +400,66 @@ class ODETranslation(object):
         # Blow the cache of the inverse
         self._inv_herm_mult = None
 
+    def multiplier_negate_column(self, i):
+        '''
+        Negate column i:
+        C_i <- -C_i
+        Check that we are only operating with 0 columns of the scaling matrix.
+
+        Args:
+            i (int): Column index
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1, 1, -1],
+        ...                                            [0, 1, 0, -1, 1]]))
+        >>> translation.herm_form
+        Matrix([
+        [1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0]])
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0, 0],
+        [0, 0,  0,  1, 0],
+        [1, 1, -1, -1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1,  0, -1, 1]])
+        >>> translation.inv_herm_mult
+        Matrix([
+        [1, 0, 1,  1, -1],
+        [0, 1, 0, -1,  1],
+        [1, 0, 0,  0,  0],
+        [0, 1, 0,  0,  0],
+        [0, 0, 0,  1,  0]])
+        >>> translation.multiplier_negate_column(3)
+
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0, 0],
+        [0, 0,  0, -1, 0],
+        [1, 1, -1,  1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1,  0,  1, 1]])
+
+        Check we have recalculated the inverse after a column operation.
+
+        >>> translation.inv_herm_mult
+        Matrix([
+        [1,  0, 1,  1, -1],
+        [0,  1, 0, -1,  1],
+        [1,  0, 0,  0,  0],
+        [0, -1, 0,  0,  0],
+        [0,  0, 0,  1,  0]])
+
+        >>> translation.multiplier_negate_column(1)
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot negate non-zero column 1
+        '''
+        if not self.herm_form.col(i).is_zero:
+            raise ValueError('Cannot negate non-zero column {}'.format(i))
+        self._herm_mult.col_op(i, lambda v, index: -v)
+        # Blow the cache of the inverse
+        self._inv_herm_mult = None
+
     def translate(self, system):
         '''
         Translate an :class:`ode_system.ODESystem` into a reduced system.
