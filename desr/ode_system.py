@@ -13,23 +13,30 @@ class ODESystem(object):
     A system of differential equations.
 
     The main attributes are :attr:`~desr.ode_system.ODESystem.variables` and :attr:`~desr.ode_system.ODESystem.derivatives`.
-    :attr:`~desr.ode_system.ODESystem.variables` is an ordered tuple of non-constant variables, which includes the independent variable.
+    :attr:`~desr.ode_system.ODESystem.variables` is an ordered tuple of variables, which includes the independent variable.
     :attr:`~desr.ode_system.ODESystem.derivatives` is an ordered tuple of the same length that contains the derivatives with respect to :attr:`~desr.ode_system.ODESystem.indep_var`.
 
     Args:
         variables (tuple of sympy.Symbol): Ordered tuple of variables.
         derivatives (tuple of sympy.Expression): Ordered tuple of derivatives.
         indep_var (sympy.Symbol, optional): Independent variable we are differentiating with respect to.
+        initial_conditions (tuple of sympy.Symbol): The initial values of non-constant variables
     '''
 
-    def __init__(self, variables, derivatives, indep_var=None):
+    def __init__(self, variables, derivatives, indep_var=None, initial_conditions=None):
         self._variables = tuple(variables)
         self._derivatives = tuple(derivatives)
 
         self._indep_var = sympy.var('t') if indep_var is None else indep_var
 
+        self._initial_conditions = {}
+
         assert len(self._variables) == len(self._derivatives)
         assert self.derivatives[self.indep_var_index] == sympy.sympify(1)
+
+        if initial_conditions is not None:
+            self.update_initial_conditions(initial_conditions=initial_conditions)
+
 
     def __eq__(self, other):
         if type(self) is not type(other):
@@ -70,6 +77,8 @@ class ODESystem(object):
     @property
     def indep_var(self):
         """
+        Return the independent variable.
+
         Returns:
             sympy.Symbol: The independent variable, which we are differentiating with respect to.
         """
@@ -78,6 +87,8 @@ class ODESystem(object):
     @property
     def indep_var_index(self):
         """
+        Return the independent variable index.
+
         Return:
              int: The index of :py:attr:`~indep_var` in :py:attr:`~self.variables`.
         """
@@ -86,6 +97,8 @@ class ODESystem(object):
     @property
     def variables(self):
         '''
+        Return the variables appearing in the system.
+
         Returns:
             tuple: Ordered tuple of variables appearing in the system.
         '''
@@ -100,6 +113,23 @@ class ODESystem(object):
             tuple: The constant variables.
         '''
         return tuple(var for var, deriv in zip(self.variables, self._derivatives) if deriv is None)
+
+    @property
+    def non_constant_variables(self):
+        '''
+        Return the non-constant variables - specifically those which have a derivative that isn't None or 1.
+
+        Returns:
+            tuple: The constant variables.
+
+        >>> _input = {'x': 'c_0*x*y', 'y': 'c_1*(1-x)*(1-y)*t'}
+        >>> _input = {sympy.Symbol(k): sympy.sympify(v) for k, v in _input.iteritems()}
+        >>> system = ODESystem.from_dict(_input)
+        >>> system.non_constant_variables
+        (x, y)
+        '''
+        return tuple(var for var, deriv in zip(self.variables, self._derivatives) if
+                     ((deriv is not None) and (deriv != 1)))
 
     @property
     def num_constants(self):
@@ -130,14 +160,69 @@ class ODESystem(object):
         '''
         return dict(filter(lambda x: x[1] is not None, zip(self.variables, self._derivatives)))
 
+    @property
+    def initial_conditions(self):
+        '''
+        Return a variable: initial-value mapping.
+
+        Returns:
+            dict: Keys are non-constant variables, value is the constant representing their initial condition.
+        '''
+        return self._initial_conditions.copy()
+
+    def update_initial_conditions(self, initial_conditions):
+        '''
+        Update the internal record of initial conditions.
+
+        Args:
+            initial_conditions (dict): non-constant variable: initial value constant.
+
+        >>> _input = {'x': 'c_0*x*y', 'y': 'c_1*(1-x)*(1-y)*t'}
+        >>> _input = {sympy.Symbol(k): sympy.sympify(v) for k, v in _input.iteritems()}
+        >>> system = ODESystem.from_dict(_input)
+        >>> system.update_initial_conditions({'x': 'x_0'})
+        >>> system.initial_conditions
+        {x: x_0}
+
+        >>> system.update_initial_conditions({'c_0': 'k'})
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot set initial condition k for variable c_0 with derivative None.
+
+        >>> system
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*t*(-x + 1)*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+        dx_0/dt = 0
+        x(0) = x_0
+        '''
+        non_const_var = self.non_constant_variables
+        for variable, init_cond in initial_conditions.items():
+            if not isinstance(variable, sympy.Symbol):
+                variable = sympy.Symbol(variable)
+            if not isinstance(init_cond, sympy.Symbol):
+                init_cond = sympy.Symbol(init_cond)
+            # We can only set initial conditions of non-constant variables we already know about.
+            if variable not in non_const_var:
+                raise ValueError('Cannot set initial condition {} for variable {} with derivative {}.'.format(init_cond,
+                                                                                                              variable,
+                                                                                                              self.derivative_dict.get(variable)))
+            if init_cond not in self.variables:
+                self._variables = tuple(list(self._variables) + [init_cond])
+                self._derivatives = tuple(list(self._derivatives) + [None])
+            self._initial_conditions[variable] = init_cond
+
     @classmethod
-    def from_equations(cls, equations, indep_var=sympy.var('t')):
+    def from_equations(cls, equations, indep_var=sympy.var('t'), initial_conditions=None):
         '''
         Instantiate from multiple equations.
 
         Args:
             equations (str, iter of str): Equations of the form "dx/dt = expr", optionally seperated by :code:`\\n`.
             indep_var (sympy.Symbol): The independent variable, usually :code:`t`.
+            initial_conditions (tuple of sympy.Symbol): The initial values of non-constant variables
 
         Returns:
             ODESystem: System of equations.
@@ -161,18 +246,20 @@ class ODESystem(object):
             equations = equations.strip().split('\n')
 
         deriv_dict = dict(map(lambda x: parse_de(x, indep_var=str(indep_var)), equations))
-        system = cls.from_dict(deriv_dict=deriv_dict, indep_var=indep_var)
+        system = cls.from_dict(deriv_dict=deriv_dict, indep_var=indep_var, initial_conditions=initial_conditions)
         system.default_order_variables()
         return system
 
     @classmethod
-    def from_dict(cls, deriv_dict, indep_var=sympy.var('t')):
+    def from_dict(cls, deriv_dict, indep_var=sympy.var('t'), initial_conditions=None):
         '''
         Instantiate from a text of equations.
 
         Args:
             deriv_dict (dict): {variable: derivative} mapping.
             indep_var (sympy.Symbol): Independent variable, that the derivatives are with respect to.
+            initial_conditions (tuple of sympy.Symbol): The initial values of non-constant variables
+
 
         Returns:
             ODESystem: System of ODEs.
@@ -197,18 +284,26 @@ class ODESystem(object):
         '''
         # Make a tuple of all variables.
         variables = set(expressions_to_variables(deriv_dict.values())).union(set(deriv_dict.keys()))
+        if initial_conditions is not None:
+            variables.update(map(expressions_to_variables, initial_conditions.values()))
         variables = tuple(variables.union(set([indep_var])))
 
         assert ((deriv_dict.get(indep_var) is None) or (deriv_dict.get(indep_var) == 1))
         deriv_dict[indep_var] = sympy.sympify(1)
 
-        system = cls(variables, tuple([deriv_dict.get(var) for var in variables]), indep_var=indep_var)
+        system = cls(variables,
+                     tuple([deriv_dict.get(var) for var in variables]),
+                     indep_var=indep_var,
+                     initial_conditions=initial_conditions)
         system.default_order_variables()
         return system
 
-
     def __repr__(self):
         lines = ['d{}/d{} = {}'.format(var, self.indep_var, expr) for var, expr in zip(self.variables, self.derivatives)]
+        for v in self.non_constant_variables:
+            init_cond = self.initial_conditions.get(v)
+            if init_cond is not None:
+                lines.append('{}(0) = {}'.format(v, init_cond))
         return '\n'.join(lines)
 
     def to_tex(self):
@@ -231,10 +326,27 @@ class ODESystem(object):
         \\frac{dk_{1}}{dt} &= 0 \\\\
         \\frac{dk_{2}}{dt} &= 0 \\\\
         \\frac{dk_{-1}}{dt} &= 0
+
+        >>> system.update_initial_conditions({'C': 'C_0'})
+        >>> print system.to_tex()
+        \\frac{dt}{dt} &= 1 \\\\
+        \\frac{dC}{dt} &= - C k_{2} - C k_{-1} + E S k_{1} \\\\
+        \\frac{dE}{dt} &= C k_{2} + C k_{-1} - E S k_{1} \\\\
+        \\frac{dP}{dt} &= C k_{2} \\\\
+        \\frac{dS}{dt} &= C k_{-1} - E S k_{1} \\\\
+        \\frac{dk_{1}}{dt} &= 0 \\\\
+        \\frac{dk_{2}}{dt} &= 0 \\\\
+        \\frac{dk_{-1}}{dt} &= 0 \\\\
+        \\frac{dC_{0}}{dt} &= 0 \\\\
+        C\\left(0\\right) &= C_{0}
         '''
         line_template = '\\frac{{d{}}}{{d{}}} &= {}'
         lines = [line_template.format(var_to_tex(var), var_to_tex(self.indep_var), expr_to_tex(expr))
                  for var, expr in zip(self.variables, self.derivatives)]
+        for v in self.non_constant_variables:
+            init_cond = self.initial_conditions.get(v)
+            if init_cond is not None:
+                lines.append('{}\\left(0\\right) &= {}'.format(var_to_tex(v), expr_to_tex(init_cond)))
         return ' \\\\\n'.join(lines)
 
     @classmethod
@@ -261,6 +373,9 @@ class ODESystem(object):
         dk_1/dt = 0
         dk_2/dt = 0
         dk_m1/dt = 0
+
+        Todo:
+            * Allow initial conditions to be set from tex.
         """
         sympification = tex_to_sympy(tex)
         derivative_dict = {}
@@ -291,23 +406,37 @@ class ODESystem(object):
         >>> eqns = '\\n'.join(['ds/dt = -k_1*e_0*s + (k_1*s + k_m1)*c',
         ... 'dc/dt = k_1*e_0*s - (k_1*s + k_m1 + k_2)*c'])
         >>> system = ODESystem.from_equations(eqns)
+        >>> system.variables
+        (t, c, s, e_0, k_1, k_2, k_m1)
         >>> system.power_matrix()
         Matrix([
-        [1, 1, 1,  1, 1, 1,  1, 0],
-        [0, 0, 0, -1, 0, 1,  1, 0],
-        [1, 0, 0,  1, 0, 0, -1, 0],
-        [0, 0, 0,  1, 1, 0,  0, 0],
-        [1, 0, 0,  1, 1, 1,  0, 0],
-        [0, 1, 0,  0, 0, 0,  0, 0],
-        [0, 0, 1,  0, 0, 0,  1, 0]])
+        [1, 1, 1,  1, 1, 1,  1],
+        [0, 0, 0, -1, 0, 1,  1],
+        [1, 0, 0,  1, 0, 0, -1],
+        [0, 0, 0,  1, 1, 0,  0],
+        [1, 0, 0,  1, 1, 1,  0],
+        [0, 1, 0,  0, 0, 0,  0],
+        [0, 0, 1,  0, 0, 0,  1]])
 
         While we get a different answer to the example in the paper, this is just due to choosing our reference exponent in a different way.
 
         Todo:
             * Change the code to agree with the paper.
 
+        >>> system.update_initial_conditions({'s': 's_0'})
+        >>> system.power_matrix()
+        Matrix([
+        [1, 1, 1,  1, 1, 1,  1,  0],
+        [0, 0, 0, -1, 0, 1,  1,  0],
+        [1, 0, 0,  1, 0, 0, -1,  1],
+        [0, 0, 0,  1, 1, 0,  0,  0],
+        [1, 0, 0,  1, 1, 1,  0,  0],
+        [0, 1, 0,  0, 0, 0,  0,  0],
+        [0, 0, 1,  0, 0, 0,  1,  0],
+        [0, 0, 0,  0, 0, 0,  0, -1]])
         '''
-        exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
+        exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems() if expr != 1]
+        exprs.extend([var / init_cond for var, init_cond in self.initial_conditions.items()])
         matrices = [rational_expr_to_power_matrix(expr, self.variables) for expr in exprs]
         out = sympy.Matrix.hstack(*matrices)
         assert out.shape[0] == len(self.variables)
@@ -330,6 +459,7 @@ class ODESystem(object):
         [0, 1, 1, 1, -1,  0,  0]])
         '''
         exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
+        exprs.extend([var / init_cond for var, init_cond in self.initial_conditions.items()])
         return maximal_scaling_matrix(exprs, variables=self.variables)
 
     def reorder_variables(self, variables):

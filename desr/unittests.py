@@ -1,11 +1,12 @@
-import itertools
-import sympy
 from unittest import TestCase, main
 
-from matrix_normal_forms import is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col, hnf_row
+import sympy
+
+from chemical_reaction_network import ChemicalReactionNetwork, ChemicalSpecies, Complex, Reaction
+from matrix_normal_forms import (is_hnf_row, hnf_row_lll, is_hnf_col, is_normal_hermite_multiplier, normal_hnf_col,
+    hnf_row, normal_hnf_row)
 from ode_system import ODESystem
 from ode_translation import ODETranslation
-from chemical_reaction_network import ChemicalReactionNetwork, ChemicalSpecies, Complex, Reaction
 
 
 class TestHermiteMethods(TestCase):
@@ -412,6 +413,52 @@ class TestChemicalReactionNetwork(TestCase):
         answer = ODESystem.from_equations('dx1/dt = -k_0_1*x1*x2 + k_3_2*x2\ndx2/dt = k_0_1*x1*x2 - k_3_2*x2')
 
         self.assertEqual(system, answer)
+
+
+class TestInitialConditions(TestCase):
+    ''' Test methods relating to initial conditions '''
+
+    def test_reduced_michaelis_menten(self):
+        '''
+        Michaelis Menten equations from :cite:`MM`
+
+        '''
+
+        system_tex = '''\frac{ds}{dt} &= - k_1 e_0 s + k_1 c s + K c - k_2 c \\\\
+                 \frac{dc}{dt} &= k_1 e_0 s - k_1 c s - K c'''
+
+        # First, walk through the standard analysis of the reduced MM equations without an initial condition.
+        original_system = ODESystem.from_tex(system_tex)
+
+        variables = ['t', 's', 'c', 'K', 'k_2', 'k_1', 'e_0']
+        original_system.reorder_variables(variables)
+        self.assertEqual(variables, map(str, original_system.variables))
+        self.assertEqual(original_system.power_matrix(), sympy.Matrix([[ 1, 1,  1, 1, 1, 1,  1],
+                                                                       [-1, 0, -1, 0, 0, 1,  1],
+                                                                       [ 1, 0,  1, 1, 0, 0, -1],
+                                                                       [ 0, 0,  1, 0, 1, 0,  0],
+                                                                       [ 1, 0,  0, 0, 0, 0,  0],
+                                                                       [ 0, 1,  0, 1, 0, 1,  1],
+                                                                       [ 0, 1,  0, 0, 0, 0,  1]]))
+        max_scal1 = ODETranslation.from_ode_system(original_system)
+        self.assertEqual(max_scal1.scaling_matrix, sympy.Matrix([[1, 0, 0, -1, -1, -1, 0],
+                                                                 [0, 1, 1,  0,  0, -1, 1]]))
+
+        # Add in the initial condition s_0
+        original_system.update_initial_conditions({'s': 's_0'})
+        self.assertEqual(variables + ['s_0'], map(str, original_system.variables))
+        self.assertEqual(original_system.power_matrix(), sympy.Matrix([[ 1, 1,  1, 1, 1, 1,  1,  0],
+                                                                       [-1, 0, -1, 0, 0, 1,  1,  1],
+                                                                       [ 1, 0,  1, 1, 0, 0, -1,  0],
+                                                                       [ 0, 0,  1, 0, 1, 0,  0,  0],
+                                                                       [ 1, 0,  0, 0, 0, 0,  0,  0],
+                                                                       [ 0, 1,  0, 1, 0, 1,  1,  0],
+                                                                       [ 0, 1,  0, 0, 0, 0,  1,  0],
+                                                                       [ 0, 0,  0, 0, 0, 0,  0, -1]]))
+
+        max_scal1 = ODETranslation.from_ode_system(original_system)
+        self.assertEqual(max_scal1.scaling_matrix, sympy.Matrix([[1, 0, 0, -1, -1, -1, 0, 0],
+                                                                 [0, 1, 1,  0,  0, -1, 1, 1]]))
 
 
 if __name__ == '__main__':
