@@ -55,7 +55,7 @@ class ODETranslation(object):
                                  hermite_multiplier, scaling_matrix * hermite_multiplier))
             self._herm_mult = hermite_multiplier
 
-        self._inv_herm_mult = _int_inv(self._herm_mult)
+        self._inv_herm_mult = None
 
     def __repr__(self):
         return 'A=\n{}\nV=\n{}\nW=\n{}'.format(self.scaling_matrix.__repr__(),
@@ -160,6 +160,8 @@ class ODETranslation(object):
             sympy.Matrix:
                 The inverse of the Hermite multiplier :math:`W=V^{-1}`.
         '''
+        if self._inv_herm_mult is None:
+            self._inv_herm_mult = _int_inv(self._herm_mult)
         return self._inv_herm_mult.copy()
 
     @property
@@ -256,6 +258,147 @@ class ODETranslation(object):
         :rtype: ODETranslation
         '''
         return cls(scaling_matrix=ode_system.maximal_scaling_matrix(), variables_domain=ode_system.variables)
+
+    def multiplier_swap_columns(self, i, j):
+        '''
+        Swap columns i and j of the Hermite multiplier, checking that we are only swapping 0 columns of the scaling
+        matrix.
+
+        Args:
+            i (int): Column index
+            j (int): Column index
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1, 1, -1],
+        ...                                            [0, 1, 0, -1, 1]]))
+        >>> translation.herm_form
+        Matrix([
+        [1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0]])
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0, 0],
+        [0, 0,  0,  1, 0],
+        [1, 1, -1, -1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1,  0, -1, 1]])
+        >>> translation.inv_herm_mult
+        Matrix([
+        [1, 0, 1,  1, -1],
+        [0, 1, 0, -1,  1],
+        [1, 0, 0,  0,  0],
+        [0, 1, 0,  0,  0],
+        [0, 0, 0,  1,  0]])
+
+        >>> translation.multiplier_swap_columns(2, 3)
+
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  0,  1, 0],
+        [0, 0,  1,  0, 0],
+        [1, 1, -1, -1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1, -1,  0, 1]])
+
+        Check we have recalculated the inverse after a column operation.
+
+        >>> translation.inv_herm_mult
+        Matrix([
+        [1, 0, 1,  1, -1],
+        [0, 1, 0, -1,  1],
+        [0, 1, 0,  0,  0],
+        [1, 0, 0,  0,  0],
+        [0, 0, 0,  1,  0]])
+
+        >>> translation.multiplier_swap_columns(1, 3)
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot swap non-zero column 1
+
+        >>> translation.multiplier_swap_columns(2, 6)
+        Traceback (most recent call last):
+            ...
+        IndexError: Index out of range: a[6]
+        '''
+        if i == j:
+            return
+        if not self.herm_form.col(i).is_zero:
+            raise ValueError('Cannot swap non-zero column {}'.format(i))
+        if not self.herm_form.col(j).is_zero:
+            raise ValueError('Cannot swap non-zero column {}'.format(j))
+        self._herm_mult.col_swap(i, j)
+        # Blow the cache of the inverse
+        self._inv_herm_mult = None
+
+    def multiplier_add_columns(self, i, j, alpha):
+        '''
+        Add column j alpha times to the ith column of the Hermite multiplier:
+        C_i <- C_i + alpha * C_j
+        Check that we are only operating with 0 columns of the scaling matrix.
+
+        Args:
+            i (int): Column index
+            j (int): Column index
+            alpha (int): Coefficient for addition
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1, 1, -1],
+        ...                                            [0, 1, 0, -1, 1]]))
+        >>> translation.herm_form
+        Matrix([
+        [1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0]])
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0, 0],
+        [0, 0,  0,  1, 0],
+        [1, 1, -1, -1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1,  0, -1, 1]])
+        >>> translation.inv_herm_mult
+        Matrix([
+        [1, 0, 1,  1, -1],
+        [0, 1, 0, -1,  1],
+        [1, 0, 0,  0,  0],
+        [0, 1, 0,  0,  0],
+        [0, 0, 0,  1,  0]])
+        >>> translation.multiplier_add_columns(2, 3, 1)
+
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0, 0],
+        [0, 0,  1,  1, 0],
+        [1, 1, -2, -1, 0],
+        [0, 0,  0,  0, 1],
+        [0, 1, -1, -1, 1]])
+
+        Check we have recalculated the inverse after a column operation.
+
+        >>> translation.inv_herm_mult
+        Matrix([
+        [ 1, 0, 1,  1, -1],
+        [ 0, 1, 0, -1,  1],
+        [ 1, 0, 0,  0,  0],
+        [-1, 1, 0,  0,  0],
+        [ 0, 0, 0,  1,  0]])
+
+        >>> translation.multiplier_add_columns(1, 3, 1)
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot swap non-zero column 1
+
+        >>> translation.multiplier_add_columns(3, 3, 1)
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot add column 3 to itself
+        '''
+        if i == j:
+            raise ValueError('Cannot add column {} to itself'.format(i))
+        if not self.herm_form.col(i).is_zero:
+            raise ValueError('Cannot swap non-zero column {}'.format(i))
+        if not self.herm_form.col(j).is_zero:
+            raise ValueError('Cannot swap non-zero column {}'.format(j))
+        self._herm_mult.col_op(i, lambda v, index: v + alpha * self._herm_mult[index, j])
+        # Blow the cache of the inverse
+        self._inv_herm_mult = None
 
     def translate(self, system):
         '''
