@@ -20,6 +20,7 @@ To install, download the package and run:
 ## Running the tests
 
 Doctests are included in most files. To run them, simply run the module. E.g. "python -m doctest -v module.py"
+To run all tests, use Sphinx's `make doctest`.
 
 ## Built With
 
