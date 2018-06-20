@@ -413,5 +413,6 @@ class TestChemicalReactionNetwork(TestCase):
 
         self.assertEqual(system, answer)
 
+
 if __name__ == '__main__':
     main()
