@@ -318,7 +318,26 @@ class ODETranslation(object):
         Traceback (most recent call last):
             ...
         IndexError: Index out of range: a[6]
+
+        Sympy's natural column accessing is unhappy with negative indices, so make sure we don't pick up any bad habits
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1, 0], [0, 1, 0, 1]]))
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0],
+        [0, 0,  0,  1],
+        [1, 0, -1,  0],
+        [0, 1,  0, -1]])
+        >>> translation.multiplier_swap_columns(2, -1)
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  0,  1],
+        [0, 0,  1,  0],
+        [1, 0,  0, -1],
+        [0, 1, -1,  0]])
         '''
+        if i < 0: i += self.herm_mult.cols
+        if j < 0: j += self.herm_mult.cols
         if i == j:
             return
         if not self.herm_form.col(i).is_zero:
@@ -389,7 +408,26 @@ class ODETranslation(object):
         Traceback (most recent call last):
             ...
         ValueError: Cannot add column 3 to itself
+
+        Sympy's natural column accessing is unhappy with negative indices, so make sure we don't pick up any bad habits
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1, 0], [0, 1, 0, 1]]))
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0],
+        [0, 0,  0,  1],
+        [1, 0, -1,  0],
+        [0, 1,  0, -1]])
+        >>> translation.multiplier_add_columns(2, -1, 1)
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1,  0],
+        [0, 0,  1,  1],
+        [1, 0, -1,  0],
+        [0, 1, -1, -1]])
         '''
+        if i < 0: i += self.herm_mult.cols
+        if j < 0: j += self.herm_mult.cols
         if i == j:
             raise ValueError('Cannot add column {} to itself'.format(i))
         if not self.herm_form.col(i).is_zero:
@@ -453,7 +491,23 @@ class ODETranslation(object):
         Traceback (most recent call last):
             ...
         ValueError: Cannot negate non-zero column 1
+
+        Sympy's natural column accessing is unhappy with negative indices, so make sure we don't pick up any bad habits
+
+        >>> translation = ODETranslation(sympy.Matrix([[1, 0, 1], [0, 1, 0]]))
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0,  1],
+        [0, 1,  0],
+        [1, 0, -1]])
+        >>> translation.multiplier_negate_column(-1)
+        >>> translation.herm_mult
+        Matrix([
+        [0, 0, -1],
+        [0, 1,  0],
+        [1, 0,  1]])
         '''
+        if i < 0: i += self.herm_mult.cols
         if not self.herm_form.col(i).is_zero:
             raise ValueError('Cannot negate non-zero column {}'.format(i))
         self._herm_mult.col_op(i, lambda v, index: -v)
