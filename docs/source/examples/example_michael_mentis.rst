@@ -1,7 +1,118 @@
 
 
-Example Michael-Mentis
-======================
+Example Michaelis-Menten
+========================
+
+We derive the analysis of the Michaelis-Menten equations found in :cite:`Segel1989`: in a systematic manner.
+
+After using the law of mass action, we are able to reduce the initial set of equations to
+
+.. math::
+    :nowrap:
+
+    \begin{align}
+    \frac{ds}{dt} &= - k_1 e_0 s + k_1 c s + k_{-1} c \\
+    \frac{dc}{dt} &= k_1 e_0 s - k_1 c s - k_{-1} c - k_2 c \\
+    s(0) &= s_0
+    \end{align}
+
+First we must create the system.
+Before we perform any analysis, we set :math:`K = k_2 + k_{-1}` and eliminate :math:`k_{-1}`.
+Why can/do we do this??
+
+    >>> system_tex = '''\frac{ds}{dt} &= - k_1 e_0 s + k_1 c s + k_{-1} c \\\\
+    ...          \frac{dc}{dt} &= k_1 e_0 s - k_1 c s - k_{-1} c - k_2 c'''
+    >>> system_tex_reduced_km1 = system_tex.replace('k_{-1}', '(K - k_2)')
+    >>> reduced_system_km1 = ODESystem.from_tex(system_tex_reduced_km1)
+
+We reorder the variables, so that we try to normalise by later oners.
+
+
+    >>> reduced_system_km1.reorder_variables(['t', 's', 'c', 'K', 'k_2', 'k_1', 'e_0'])
+    >>> reduced_system_km1.variables
+    (t, s, c, K, k_2, k_1, e_0)
+
+
+We can then see the exponent (or power) matrix, maximal scaling matrix and corresponding invariants:
+
+    >>> reduced_system_km1.power_matrix()
+    Matrix([
+    [ 1, 1,  1, 1, 1, 1,  1],
+    [-1, 0, -1, 0, 0, 1,  1],
+    [ 1, 0,  1, 1, 0, 0, -1],
+    [ 0, 0,  1, 0, 1, 0,  0],
+    [ 1, 0,  0, 0, 0, 0,  0],
+    [ 0, 1,  0, 1, 0, 1,  1],
+    [ 0, 1,  0, 0, 0, 0,  1]])
+    >>> max_scal1 = ODETranslation.from_ode_system(reduced_system_km1)
+    >>> max_scal1.scaling_matrix
+    Matrix([
+    [1, 0, 0, -1, -1, -1, 0],
+    [0, 1, 1,  0,  0, -1, 1]])
+    >>> max_scal1.invariants()
+    Matrix([[e_0*k_1*t, s/e_0, c/e_0, K/(e_0*k_1), k_2/(e_0*k_1)]])
+
+The reduced system is also computed:
+
+    >>> max_scal1.translate(reduced_system_km1)
+    dt/dt = 1
+    dc/dt = -c*c0 - c*s + s
+    ds/dt = c*c0 - c*c1 + c*s - s
+    dc0/dt = 0
+    dc1/dt = 0
+
+However, we need to add in our initial condition for :math:`s`.
+
+    >>> reduced_system_km1.update_initial_conditions({'s': 's_0'})
+    >>> max_scal2 = ODETranslation.from_ode_system(reduced_system_km1)
+    >>> max_scal2.scaling_matrix
+    Matrix([
+    [1, 0, 0, -1, -1, -1, 0, 0],
+    [0, 1, 1,  0,  0, -1, 1, 1]])
+    >>> max_scal2.invariants()
+    Matrix([[k_1*s_0*t, s/s_0, c/s_0, K/(k_1*s_0), k_2/(k_1*s_0), e_0/s_0]])
+
+Some elementary column operations give us equations 8
+
+    >>> max_scal2.multiplier_add_columns(2, -1, 1)  # Scale time by e_0 not s_0
+    >>> max_scal2.multiplier_add_columns(4, -1, -1)  # Scale c by e_0
+    >>> max_scal2.invariants()
+    Matrix([[e_0*k_1*t, s/s_0, c/e_0, K/(k_1*s_0), k_2/(k_1*s_0), e_0/s_0]])
+    >>> max_scal2.translate(reduced_system_km1)
+    dt/dt = 1
+    dc/dt = -c*c0/c2 - c*s/c2 + s/c2
+    ds/dt = c*c0 - c*c1 + c*s - s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    d1/dt = 0
+    s(0) = 1
+
+
+We can also scale time by :math:`\epsilon` to get the "inner" equation 11:
+
+    >>> max_scal2.multiplier_add_columns(2, -1, -1)  # Divide time through by epsilon
+    >>> max_scal2.invariants()
+    Matrix([[k_1*s_0*t, s/s_0, c/e_0, K/(k_1*s_0), k_2/(k_1*s_0), e_0/s_0]])
+    >>> max_scal2.translate(reduced_system_km1)
+    dt/dt = 1
+    dc/dt = -c*c0 - c*s + s
+    ds/dt = c*c0*c2 - c*c1*c2 + c*c2*s - c2*s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    d1/dt = 0
+    s(0) = 1
+
+What is epsilon is not small?
+We can find that $s_0 + K_m$ is an invariant systematically.
+So we substitute $L = s_0 + K_m$ to eliminate for K_m.
+
+
+
+
+Raw Michaelis-Menten Equation Analysis
+--------------------------------------
 
 We perform an example analysis of the Michael-Mentis equations :cite:`Segel1989`:
 
