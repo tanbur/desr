@@ -127,62 +127,62 @@ def example_michael_mentis_simplified(verbose=True):
     system_tex = '''\frac{ds}{dt} &= - k_1 e_0 s + k_1 c s + k_{-1} c \\\\
              \frac{dc}{dt} &= k_1 e_0 s - k_1 c s - k_{-1} c - k_2 c'''
 
-    system_tex_reduced_km1 = system_tex.replace('k_{-1}', '(K - k_2)')
-
-    reduced_system_km1 = ODESystem.from_tex(system_tex_reduced_km1)
-
-    reduced_system_km1.reorder_variables(['t', 's', 'c', 'K', 'k_2', 'k_1', 'e_0'])
-
-    # Print variable order
-    print 'Variable order: ', reduced_system_km1.variables
-
-    print 'Power Matrix:', reduced_system_km1.power_matrix().__repr__()
-
-    # Print scaling matrices
-    max_scal1 = ODETranslation.from_ode_system(reduced_system_km1)
-    print 'Scaling matrix:'
-    print max_scal1.scaling_matrix.__repr__()
-
-    # Print invariants
-    print 'Invariants: ', max_scal1.invariants()
-    # print ',\quad '.join(map(expr_to_tex, max_scal1.invariants()))
-
-    # Print translated system
-    print 'Reduced system:'
-    # print max_scal1.translate(original_system)#.to_tex()
-
-    print 'Adding in the initial condition for s'
-    print '-------------------------------------'
-    reduced_system_km1.update_initial_conditions({'s': 's_0'})
-    max_scal2 = ODETranslation.from_ode_system(reduced_system_km1)
-
-    print 'Invariants: ', max_scal2.invariants()
-
-    # print max_scal2.herm_mult.__repr__()
-    print 'Michaelis-Menten Reparametrisation 1'
-    print 'Changing invariants by column operations on the Hermite multiplier'
-    max_scal2.multiplier_add_columns(2, -1, 1)
-    max_scal2.multiplier_add_columns(4, -1, -1)
-
-    print 'Invariants: ', max_scal2.invariants()
-    # print max_scal2.herm_mult.__repr__()
-
-    # Print translated system
-    print 'Reduced system:'
-    print max_scal2.translate(reduced_system_km1)#.to_tex()
-
-    print 'Michaelis-Menten Reparametrisation 2'
-    print 'Changing invariants by column operations on the Hermite multiplier'
-    # Divide time through by epsilon
-    max_scal2.multiplier_add_columns(2, -1, -1)
-
-
-    print 'Invariants: ', max_scal2.invariants()
-    # print max_scal2.herm_mult.__repr__()
-
-    # Print translated system
-    print 'Reduced system:'
-    print max_scal2.translate(reduced_system_km1)#.to_tex()
+    # system_tex_reduced_km1 = system_tex.replace('k_{-1}', '(K - k_2)')
+    #
+    # reduced_system_km1 = ODESystem.from_tex(system_tex_reduced_km1)
+    #
+    # reduced_system_km1.reorder_variables(['t', 's', 'c', 'K', 'k_2', 'k_1', 'e_0'])
+    #
+    # # Print variable order
+    # print 'Variable order: ', reduced_system_km1.variables
+    #
+    # print 'Power Matrix:', reduced_system_km1.power_matrix().__repr__()
+    #
+    # # Print scaling matrices
+    # max_scal1 = ODETranslation.from_ode_system(reduced_system_km1)
+    # print 'Scaling matrix:'
+    # print max_scal1.scaling_matrix.__repr__()
+    #
+    # # Print invariants
+    # print 'Invariants: ', max_scal1.invariants()
+    # # print ',\quad '.join(map(expr_to_tex, max_scal1.invariants()))
+    #
+    # # Print translated system
+    # print 'Reduced system:'
+    # # print max_scal1.translate(original_system)#.to_tex()
+    #
+    # print 'Adding in the initial condition for s'
+    # print '-------------------------------------'
+    # reduced_system_km1.update_initial_conditions({'s': 's_0'})
+    # max_scal2 = ODETranslation.from_ode_system(reduced_system_km1)
+    #
+    # print 'Invariants: ', max_scal2.invariants()
+    #
+    # # print max_scal2.herm_mult.__repr__()
+    # print 'Michaelis-Menten Reparametrisation 1'
+    # print 'Changing invariants by column operations on the Hermite multiplier'
+    # max_scal2.multiplier_add_columns(2, -1, 1)
+    # max_scal2.multiplier_add_columns(4, -1, -1)
+    #
+    # print 'Invariants: ', max_scal2.invariants()
+    # # print max_scal2.herm_mult.__repr__()
+    #
+    # # Print translated system
+    # print 'Reduced system:'
+    # print max_scal2.translate(reduced_system_km1)#.to_tex()
+    #
+    # print 'Michaelis-Menten Reparametrisation 2'
+    # print 'Changing invariants by column operations on the Hermite multiplier'
+    # # Divide time through by epsilon
+    # max_scal2.multiplier_add_columns(2, -1, -1)
+    #
+    #
+    # print 'Invariants: ', max_scal2.invariants()
+    # # print max_scal2.herm_mult.__repr__()
+    #
+    # # Print translated system
+    # print 'Reduced system:'
+    # print max_scal2.translate(reduced_system_km1)#.to_tex()
 
 
 
@@ -193,28 +193,46 @@ def example_michael_mentis_simplified(verbose=True):
     print 'What if epsilon = e_0 / s_0 is not small?'
     print 'In order '
     # Substitute K_m into the equations
-    system_tex_reduced_km = system_tex.replace('k_{-1}', 'K').replace('K', 'K_m k_1')
+    system_tex_reduced_l = system_tex.replace('k_{-1}', '(K - k_2)').replace('K', 'K_m k_1')
     # Now set L = K_m + s_0
-    system_tex_reduced_l = system_tex_reduced_km.replace('K_m', '(L - s_0)')
+    # system_tex_reduced_l = system_tex_reduced_km.replace('K_m', '(L - s_0)')
+
+    print system_tex_reduced_l
+
+    # return
     # print system_tex_reduced_km
     reduced_system_l = ODESystem.from_tex(system_tex_reduced_l)
     reduced_system_l.update_initial_conditions({'s': 's_0'})
-    reduced_system_l.reorder_variables(['t', 's', 'c', 'L', 'k_2', 'k_1', 'e_0', 's_0'])
+    reduced_system_l.add_constraints('L', 's_0 + K_m')
+    reduced_system_l.reorder_variables(['t', 's', 'c', 'k_2', 'k_1', 'e_0', 's_0', 'L', 'K_m'])
 
     max_scal3 = ODETranslation.from_ode_system(reduced_system_l)
 
-    print max_scal3.invariants()
-
+    # print max_scal3.invariants()
     # Scale t correctly to t/t_C = k_1 L t
-    max_scal3.multiplier_add_columns(2, 5, 1)
+    max_scal3.multiplier_add_columns(2, -1, 1)
+    # Scale s correctly to s / s_0
+    max_scal3.multiplier_add_columns(3, -2, -1)
+
     # Scale c correctly to c / (e_0 s_0 / L)
-    max_scal3.multiplier_add_columns(4, 5, 1)
-    max_scal3.multiplier_add_columns(4, -1, -1)
-    # Find the epsilon constant
+    max_scal3.multiplier_add_columns(4, 6, -1)
+    max_scal3.multiplier_add_columns(4, 7, -1)
+    max_scal3.multiplier_add_columns(4, -1, 1)
+    # Find kappa = k_{-1} / k_2 = (K_m k_1 / k_2) - 1
     max_scal3.multiplier_negate_column(5)
-    max_scal3.multiplier_add_columns(5, -1, 1)
+    # Find epsilon = e_0 / L
+    max_scal3.multiplier_add_columns(6, -1, -1)
+    # Find sigma = s_0 / K_m
 
     print max_scal3.invariants()
+
+    print 'We now have:'
+    print 'c_0 = kappa + 1'
+    print 'c_1 = epsilon'
+    print 'c_2 = sigma'
+    print 'c_3 = L / K_m'
+    # print reduced_system_l
+    print max_scal3.translate(reduced_system_l)
 
     return
 
