@@ -202,7 +202,7 @@ class ODESystem(object):
         for variable, init_cond in initial_conditions.items():
             if not isinstance(variable, sympy.Symbol):
                 variable = sympy.Symbol(variable)
-            if not isinstance(init_cond, sympy.Symbol):
+            if isinstance(init_cond, str):
                 init_cond = sympy.Symbol(init_cond)
             # We can only set initial conditions of non-constant variables we already know about.
             if variable not in non_const_var:

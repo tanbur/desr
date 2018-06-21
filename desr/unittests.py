@@ -446,6 +446,9 @@ class TestInitialConditions(TestCase):
 
         # Add in the initial condition s_0
         original_system.update_initial_conditions({'s': 's_0'})
+        self.assertSetEqual(set(original_system.initial_conditions.items()),
+                            set(map(lambda t: (sympy.sympify(t[0]), sympy.sympify(t[1])),
+                                    (('s', 's_0'),))))
         self.assertEqual(variables + ['s_0'], map(str, original_system.variables))
         self.assertEqual(original_system.power_matrix(), sympy.Matrix([[ 1, 1,  1, 1, 1, 1,  1,  0],
                                                                        [-1, 0, -1, 0, 0, 1,  1,  1],
@@ -459,6 +462,16 @@ class TestInitialConditions(TestCase):
         max_scal1 = ODETranslation.from_ode_system(original_system)
         self.assertEqual(max_scal1.scaling_matrix, sympy.Matrix([[1, 0, 0, -1, -1, -1, 0, 0],
                                                                  [0, 1, 1,  0,  0, -1, 1, 1]]))
+
+        reduced_system = max_scal1.translate(original_system)
+        self.assertSetEqual(set(reduced_system.derivative_dict.items()),
+                            set(map(lambda t: (sympy.sympify(t[0]), sympy.sympify(t[1])),
+                                    (('c', '-c*c0 - c*s + c2*s'),
+                                     ('s', 'c*c0 - c*c1 + c*s - c2*s'),
+                                     ('t', 1)))))
+        self.assertSetEqual(set(reduced_system.initial_conditions.items()),
+                            set(map(lambda t: (sympy.sympify(t[0]), sympy.sympify(t[1])),
+                                    (('s', 1),))))
 
 
 if __name__ == '__main__':

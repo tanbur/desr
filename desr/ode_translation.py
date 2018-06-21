@@ -553,6 +553,8 @@ class ODETranslation(object):
         dx0/dt = x0*(y0 - 1/t)
         dy0/dt = y0*(1 + 1/t)
         '''
+        if system.initial_conditions:
+            raise NotImplementedError('General translation not yet implemented for systems with initial conditions')
         # First check that our scaling action doesn't act on the independent variable
         if self.n == len(system.variables):
             if not self.scaling_matrix[:, system.indep_var_index].is_zero:
@@ -638,6 +640,8 @@ class ODETranslation(object):
         dy4/dt = 0
         dy5/dt = 0
         '''
+        if system.initial_conditions:
+            raise NotImplementedError('General translation not yet implemented for systems with initial conditions')
         # y = sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
         #print 'y = ', sympy.Matrix(scale_action(system.variables, self.herm_mult_n))
         num_inv_var = self.herm_mult_n.shape[1]
@@ -763,7 +767,16 @@ class ODETranslation(object):
             derivative_factor = (to_sub[key] / key) * (system.indep_var / to_sub[system.indep_var])
             new_deriv_dict[key] = (val.subs(to_sub) / derivative_factor).expand()
 
-        return ODESystem.from_dict(new_deriv_dict)
+        reduced_system = ODESystem.from_dict(new_deriv_dict)
+
+        # Since z(0) / z_0 is a rational invariant, we can rewrite it using to_sub substitutions.
+        if system.initial_conditions:
+            # For parameter substitution, the dependent variables keep their name
+            new_initial_conditions = {var: (init_cond.subs(to_sub) * var / to_sub[var]).expand()
+                                      for var, init_cond in system.initial_conditions.items()}
+            reduced_system.update_initial_conditions(new_initial_conditions)
+
+        return reduced_system
 
     def reverse_translate(self, variables):
         """
