@@ -760,7 +760,8 @@ class ODETranslation(object):
         for key, val in system.derivative_dict.iteritems():
             if key in system.constant_variables:
                 continue
-            new_deriv_dict[key] = val.subs(to_sub)
+            derivative_factor = (to_sub[key] / key) * (system.indep_var / to_sub[system.indep_var])
+            new_deriv_dict[key] = (val.subs(to_sub) / derivative_factor).expand()
 
         return ODESystem.from_dict(new_deriv_dict)
 
@@ -830,8 +831,8 @@ class ODETranslation(object):
         ...                              hermite_multiplier=herm_mult)
         >>> translation.translate_parameter(system)
         dt/dt = 1
-        dn/dt = n*(-c1*p/(c0 + n) - n + 1)
-        dp/dt = c2*p*(1 - p/n)
+        dn/dt = -c1*n*p/(c0 + n) - n**2 + n
+        dp/dt = c2*p - c2*p**2/n
         dc0/dt = 0
         dc1/dt = 0
         dc2/dt = 0

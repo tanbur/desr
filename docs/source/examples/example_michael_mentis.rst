@@ -181,13 +181,13 @@ to the last :math:`n-r` columns.
     >>> max_scal3 = ODETranslation(max_scal1.scaling_matrix, hermite_multiplier=max_scal3)
     >>> print max_scal3.translate(original_system)
     dt/dt = 1
-    dC/dt = -C*c0**2 - C*c0 + E*S
+    dC/dt = -C*c0 - C + E*S/c0
     dE/dt = C*c0**2 + C*c0 - E*S
     dP/dt = C*c0**2
     dS/dt = C*c0 - E*S
     dc0/dt = 0
 
-So we have found a third different reparametrization of the Michael-Mentis equations.
+So we have found a third different reparametrization of the Michaelis-Menten equations.
 
 .. todo::
 
