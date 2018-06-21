@@ -37,6 +37,8 @@ class ODESystem(object):
         if initial_conditions is not None:
             self.update_initial_conditions(initial_conditions=initial_conditions)
 
+        self._constraints = []
+
 
     def __eq__(self, other):
         if type(self) is not type(other):
@@ -72,7 +74,11 @@ class ODESystem(object):
         Returns:
             ODESystem: A copy of the system.
         '''
-        return ODESystem(self._variables, self._derivatives, indep_var=self._indep_var)
+        system = ODESystem(self._variables, self._derivatives, indep_var=self._indep_var)
+        system.update_initial_conditions(self.initial_conditions)
+        for eqn in self.constraints:
+            system.add_constraints(eqn.lhs, eqn.rhs)
+        return system
 
     @property
     def indep_var(self):
@@ -170,6 +176,17 @@ class ODESystem(object):
         '''
         return self._initial_conditions.copy()
 
+    @property
+    def constraints(self):
+        '''
+        Todo:
+            * Finish docstring
+
+        Returns:
+
+        '''
+        return self._constraints[:]
+
     def update_initial_conditions(self, initial_conditions):
         '''
         Update the internal record of initial conditions.
@@ -213,6 +230,27 @@ class ODESystem(object):
                 self._variables = tuple(list(self._variables) + [init_cond])
                 self._derivatives = tuple(list(self._derivatives) + [None])
             self._initial_conditions[variable] = init_cond
+
+    def add_constraints(self, lhs, rhs):
+        '''
+        Add constraints that
+        :param lhs:
+        :param rhs:
+        :return:
+
+        Todo:
+            * Finish docstring and tests, here and for: finding scaling symmetries and also translation
+            * Check for 0 case
+        '''
+        if isinstance(lhs, str):
+            lhs = sympy.sympify(lhs)
+        if isinstance(rhs, str):
+            rhs = sympy.sympify(rhs)
+        variables = expressions_to_variables([lhs, rhs])
+        variables = sorted(variables.difference(set(self.variables)), key=str)
+        self._variables = tuple(list(self._variables) + variables)
+        self._derivatives = tuple(list(self._derivatives) + [None for _ in variables])
+        self._constraints.append(sympy.Eq(lhs, rhs))
 
     @classmethod
     def from_equations(cls, equations, indep_var=sympy.var('t'), initial_conditions=None):
@@ -304,6 +342,8 @@ class ODESystem(object):
             init_cond = self.initial_conditions.get(v)
             if init_cond is not None:
                 lines.append('{}(0) = {}'.format(v, init_cond))
+        for eqn in self.constraints:
+            lines.append('{} == {}'.format(eqn.lhs, eqn.rhs))
         return '\n'.join(lines)
 
     def to_tex(self):
@@ -347,6 +387,8 @@ class ODESystem(object):
             init_cond = self.initial_conditions.get(v)
             if init_cond is not None:
                 lines.append('{}\\left(0\\right) &= {}'.format(var_to_tex(v), expr_to_tex(init_cond)))
+        for eqn in self.constraints:
+            lines.append('{} &= {}'.format(eqn.lhs, eqn.rhs))
         return ' \\\\\n'.join(lines)
 
     @classmethod
@@ -437,6 +479,7 @@ class ODESystem(object):
         '''
         exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems() if expr != 1]
         exprs.extend([var / init_cond for var, init_cond in self.initial_conditions.items()])
+        exprs.extend([eq.lhs / eq.rhs for eq in self.constraints])
         matrices = [rational_expr_to_power_matrix(expr, self.variables) for expr in exprs]
         out = sympy.Matrix.hstack(*matrices)
         assert out.shape[0] == len(self.variables)
@@ -458,8 +501,9 @@ class ODESystem(object):
         [1, 0, 0, 0, -1, -1, -1],
         [0, 1, 1, 1, -1,  0,  0]])
         '''
-        exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems()]
+        exprs = [self._indep_var * expr / var for var, expr in self.derivative_dict.iteritems() if expr != 1]
         exprs.extend([var / init_cond for var, init_cond in self.initial_conditions.items()])
+        exprs.extend([eq.lhs / eq.rhs for eq in self.constraints])
         return maximal_scaling_matrix(exprs, variables=self.variables)
 
     def reorder_variables(self, variables):

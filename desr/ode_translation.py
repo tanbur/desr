@@ -776,6 +776,10 @@ class ODETranslation(object):
                                       for var, init_cond in system.initial_conditions.items()}
             reduced_system.update_initial_conditions(new_initial_conditions)
 
+        if system.constraints:
+            for eqn in system.constraints:
+                reduced_system.add_constraints(eqn.lhs.subs(to_sub), eqn.rhs.subs(to_sub))
+
         return reduced_system
 
     def reverse_translate(self, variables):
