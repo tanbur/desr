@@ -241,12 +241,47 @@ class ODESystem(object):
         Todo:
             * Finish docstring and tests, here and for: finding scaling symmetries and also translation
             * Check for 0 case
+
+        >>> eqns = ['dx/dt = c_0*x*y', 'dy/dt = c_1*(1-x)*(1-y)']
+
+        >>> system = ODESystem.from_equations(eqns)
+        >>> system
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*(-x + 1)*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+
+        >>> system.add_constraints('c_2', 'c_0 + c_1')
+        >>> system
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*(-x + 1)*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+        dc_2/dt = 0
+        c_2 == c_0 + c_1
+
+        >>> system.add_constraints('c_2', 'c_0 + x')
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot add constraints on non-constant parameters. This would make an interesting project though...
+
+        >>> system.add_constraints('c_0', 0)
+        Traceback (most recent call last):
+            ...
+        ValueError: Cannot express equality with 0.
         '''
         if isinstance(lhs, str):
             lhs = sympy.sympify(lhs)
         if isinstance(rhs, str):
             rhs = sympy.sympify(rhs)
+        if (lhs == 0) or (rhs == 0):
+            raise ValueError('Cannot express equality with 0.')
         variables = expressions_to_variables([lhs, rhs])
+        if variables.intersection(self.non_constant_variables):
+            raise ValueError('Cannot add constraints on non-constant parameters. ' +
+                             'This would make an interesting project though...')
         variables = sorted(variables.difference(set(self.variables)), key=str)
         self._variables = tuple(list(self._variables) + variables)
         self._derivatives = tuple(list(self._derivatives) + [None for _ in variables])
