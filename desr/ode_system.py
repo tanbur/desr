@@ -414,6 +414,22 @@ class ODESystem(object):
         \\frac{dk_{-1}}{dt} &= 0 \\\\
         \\frac{dC_{0}}{dt} &= 0 \\\\
         C\\left(0\\right) &= C_{0}
+
+        >>> system.add_constraints('K_m', '(k_m1 + k_2) / k_1')
+        >>> print system.to_tex()
+        \\frac{dt}{dt} &= 1 \\\\
+        \\frac{dC}{dt} &= - C k_{2} - C k_{-1} + E S k_{1} \\\\
+        \\frac{dE}{dt} &= C k_{2} + C k_{-1} - E S k_{1} \\\\
+        \\frac{dP}{dt} &= C k_{2} \\\\
+        \\frac{dS}{dt} &= C k_{-1} - E S k_{1} \\\\
+        \\frac{dk_{1}}{dt} &= 0 \\\\
+        \\frac{dk_{2}}{dt} &= 0 \\\\
+        \\frac{dk_{-1}}{dt} &= 0 \\\\
+        \\frac{dC_{0}}{dt} &= 0 \\\\
+        \\frac{dK_{m}}{dt} &= 0 \\\\
+        C\\left(0\\right) &= C_{0} \\\\
+        K_{m} &= \\frac{1}{k_{1}} \\left(k_{2} + k_{-1}\\right)
+
         '''
         line_template = '\\frac{{d{}}}{{d{}}} &= {}'
         lines = [line_template.format(var_to_tex(var), var_to_tex(self.indep_var), expr_to_tex(expr))
@@ -423,7 +439,7 @@ class ODESystem(object):
             if init_cond is not None:
                 lines.append('{}\\left(0\\right) &= {}'.format(var_to_tex(v), expr_to_tex(init_cond)))
         for eqn in self.constraints:
-            lines.append('{} &= {}'.format(eqn.lhs, eqn.rhs))
+            lines.append('{} &= {}'.format(expr_to_tex(eqn.lhs), expr_to_tex(eqn.rhs)))
         return ' \\\\\n'.join(lines)
 
     @classmethod
