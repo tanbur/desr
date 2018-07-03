@@ -132,10 +132,10 @@ def tex_to_sympy(tex):
     tex = re.sub(r'\frac{(.*)}{(.*)}', '((\\1) / (\\2))', tex)
     # Turn spaces between variables into *. Do this by matching anything that isn't an operation
     # Use a lookahead assertion to get overlapping instances.
-    tex = re.sub('([^\+\-\*\s/]+)\s+(?=[^\+\-\*\s/]+)', '\\1 * ', tex)
+    tex = re.sub('([^+\-*\s/(]+)\s+(?=[^+\-*\s/)]+)', '\\1 * ', tex)
 
     # Change minuses in the subscripts to m's
-    tex = re.sub('([a-zA-Z]+)_{\-(.+)}', '\\1_m\\2 ', tex)
+    tex = re.sub('([a-zA-Z]+)_{(.*)\-(.+)}', '\\1_\\2m\\3 ', tex)
 
     # We want to use all available variables, so sympify with the _clash local dictionary
     return sympy.sympify(tex, _clash1)
