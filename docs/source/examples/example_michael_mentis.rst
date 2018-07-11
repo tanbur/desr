@@ -71,6 +71,15 @@ However, we need to add in our initial condition for :math:`s`.
     [0, 1, 1,  0,  0, -1, 1, 1]])
     >>> max_scal2.invariants()
     Matrix([[k_1*s_0*t, s/s_0, c/s_0, K/(k_1*s_0), k_2/(k_1*s_0), e_0/s_0]])
+    >>> max_scal2.translate(reduced_system_km1)
+    dt/dt = 1
+    dc/dt = -c*c0 - c*s + c2*s
+    ds/dt = c*c0 - c*c1 + c*s - c2*s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    d1/dt = 0
+    s(0) = 1
 
 Some elementary column operations give us equations 8
 
@@ -106,8 +115,110 @@ We can also scale time by :math:`\epsilon` to get the "inner" equation 11:
 
 What is epsilon is not small?
 We can find that $s_0 + K_m$ is an invariant systematically.
-So we substitute $L = s_0 + K_m$ to eliminate for K_m.
+So we add a variable $L = s_0 + K_m$.
 
+    >>> # Substitute K_m into the equations
+    >>> system_tex_reduced_l = system_tex.replace('k_{-1}', '(K - k_2)').replace('K', 'K_m k_1')
+    >>> reduced_system_l = ODESystem.from_tex(system_tex_reduced_l)
+    >>> reduced_system_l
+    dt/dt = 1
+    dc/dt = -c*k_1*s - c*k_2 - c*(K_m*k_1 - k_2) + e_0*k_1*s
+    ds/dt = c*k_1*s + c*(K_m*k_1 - k_2) - e_0*k_1*s
+    dK_m/dt = 0
+    de_0/dt = 0
+    dk_1/dt = 0
+    dk_2/dt = 0
+    >>> reduced_system_l.update_initial_conditions({'s': 's_0'})
+    >>> reduced_system_l.add_constraints('L', 's_0 + K_m')
+
+Check that if we keep L at the end, we have the same reduced system as before
+
+    >>> reduced_system_l.reorder_variables(['t', 's', 'c', 'K_m', 'k_2', 'k_1', 'e_0', 'L', 's_0'])
+    >>> max_scal = ODETranslation.from_ode_system(reduced_system_l)
+    >>> max_scal.scaling_matrix
+    Matrix([
+    [1, 0, 0, 0, -1, -1, 0, 0, 0],
+    [0, 1, 1, 1,  0, -1, 1, 1, 1]])
+    >>> max_scal.invariants()
+    Matrix([[k_1*s_0*t, s/s_0, c/s_0, K_m/s_0, k_2/(k_1*s_0), e_0/s_0, L/s_0]])
+    >>> max_scal.translate(reduced_system_l)
+    dt/dt = 1
+    dc/dt = -c*c0 - c*s + c2*s
+    ds/dt = c*c0 - c*c1 + c*s - c2*s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    d1/dt = 0
+    dc3/dt = 0
+    s(0) = 1
+    c3 == c0 + 1
+
+Now we put L into the mix:
+
+    >>> reduced_system_l.reorder_variables(['t', 's', 'c', 'k_2', 'k_1', 'e_0', 's_0', 'L', 'K_m'])
+    >>> max_scal3 = ODETranslation.from_ode_system(reduced_system_l)
+    >>> # Scale t correctly to t/t_C = k_1 L t
+    >>> max_scal3.multiplier_add_columns(2, -1, 1)
+    >>> # Scale s correctly to s / s_0
+    >>> max_scal3.multiplier_add_columns(3, -2, -1)
+    >>> # Scale c correctly to c / (e_0 s_0 / L)
+    >>> max_scal3.multiplier_add_columns(4, 6, -1)
+    >>> max_scal3.multiplier_add_columns(4, 7, -1)
+    >>> max_scal3.multiplier_add_columns(4, -1, 1)
+    >>> # Find kappa = k_{-1} / k_2 = (K_m k_1 / k_2) - 1
+    >>> max_scal3.multiplier_negate_column(5)
+    >>> # Find epsilon = e_0 / L
+    >>> max_scal3.multiplier_add_columns(6, -1, -1)
+    >>> # Find sigma = s_0 / K_m
+    >>> max_scal3.invariants()
+    Matrix([[L*k_1*t, s/s_0, L*c/(e_0*s_0), K_m*k_1/k_2, e_0/L, s_0/K_m, L/K_m]])
+
+We now have:
+
+.. math::
+    :nowrap:
+
+    \begin{align}
+    c_0 &= \kappa + 1 \\
+    c_1 &= \epsilon \\
+    c_2 &= \sigma \\
+    c_3 &= \frac{L}{K_m}
+    \end{align}
+
+
+Which gives us exactly equations 24 from Segel, after some trivial rearrangement.
+
+    >>> max_scal3.translate(reduced_system_l)
+    dt/dt = 1
+    dc/dt = -c*c2*s/c3 - c/c3 + s
+    ds/dt = c*c1*c2*s/c3 + c*c1/c3 - c*c1/(c0*c3) - c1*s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    dc3/dt = 0
+    d1/dt = 0
+    s(0) = 1
+    c3 == c2 + 1
+
+To get the equations on the other timescale, we need to multiply :math:`Lk_1t` by
+:math:`\frac{e_0}{L} \frac{k_2}{K_m*k_1}\frac{K_m}{L}=\frac{c_1}{c_0c_3}`
+
+    >>> max_scal3.multiplier_add_columns(2, 6, 1)
+    >>> max_scal3.multiplier_add_columns(2, 5, -1)
+    >>> max_scal3.multiplier_add_columns(2, -1, -1)
+    >>> max_scal3.invariants()
+    Matrix([[e_0*k_2*t/L, s/s_0, L*c/(e_0*s_0), K_m*k_1/k_2, e_0/L, s_0/K_m, L/K_m]])
+    >>> max_scal3.translate(reduced_system_l)
+    dt/dt = 1
+    dc/dt = -c*c0*c2*s/c1 - c*c0/c1 + c0*c3*s/c1
+    ds/dt = c*c0*c2*s + c*c0 - c - c0*c3*s
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    dc3/dt = 0
+    d1/dt = 0
+    s(0) = 1
+    c3 == c2 + 1
 
 
 
@@ -304,3 +415,119 @@ So we have found a third different reparametrization of the Michaelis-Menten equ
 
     Add a method to :class:`~desr.ode_translation.ODETranslation` that will try and re-order the last :math:`n-r` columns so
     that the parameter reduction scheme can be applied.
+
+Walkthroughs from Supplementary Information
+===========================================
+
+Matching Segel and Slemrod's analysis.
+
+    >>> system_tex = '''\frac{ds}{dt} &= - k_1 e_0 s + k_1 c s + k_{-1} c \\\\
+    ... \frac{dc}{dt} &= k_1 e_0 s - k_1 c s - k_{-1} c - k_2 c \\\\'''
+    >>> system_mm = ODESystem.from_tex(system_tex)
+    >>> system_mm.update_initial_conditions({'s': 's_0'})
+    >>> system_mm.add_constraints('K_m', '(k_2 + k_m1) / k_1')
+    >>> system_mm.add_constraints('epsilon', 'e_0 / (s_0 + K_m)')
+    >>> system_mm.reorder_variables(['t', 's', 'c', 'epsilon', 'k_m1', 'k_2', 'k_1', 'K_m', 'e_0', 's_0'])
+    >>> system_mm.variables
+    (t, s, c, epsilon, k_m1, k_2, k_1, K_m, e_0, s_0)
+    >>> max_scal1 = ODETranslation.from_ode_system(system_mm)
+    >>> max_scal1.scaling_matrix
+    Matrix([
+    [1, 0, 0, 0, -1, -1, -1, 0, 0, 0],
+    [0, 1, 1, 0,  0,  0, -1, 1, 1, 1]])
+    >>> max_scal1.translate(system_mm)
+    dt/dt = 1
+    dc/dt = -c*c1 - c*c2 - c*s + c4*s
+    ds/dt = c*c1 + c*s - c4*s
+    dc1/dt = 0
+    dc2/dt = 0
+    dc4/dt = 0
+    d1/dt = 0
+    dc3/dt = 0
+    dc0/dt = 0
+    s(0) = 1
+    c3 == c1 + c2
+    c0 == c4/(c3 + 1)
+
+
+First recreate the original system.
+
+
+    >>> # Scale t correctly to t/t_C = k_1 L t = e_0 k_1 t / epsilon
+    >>> max_scal1.multiplier_add_columns(2, 5, -1)
+    >>> max_scal1.multiplier_add_columns(2, -1, 1)
+    >>> # Scale s correctly to s / s_0
+    >>> # Scale c correctly to c / (e_0 s_0 / L) = c / (s_0 epsilon)
+    >>> max_scal1.multiplier_add_columns(4, 5, -1)
+    >>> # Find epsilon = e_0 / L
+    >>> # Find kappa = k_{-1} / k_2 = (K_m k_1 / k_2) - 1
+    >>> max_scal1.multiplier_add_columns(6, 7, -1)
+    >>> # Find sigma = s_0 / K_m
+    >>> max_scal1.multiplier_negate_column(-2)
+
+Inner equations (21)
+
+    >>> max_scal1.invariants()
+    Matrix([[e_0*k_1*t/epsilon, s/s_0, c/(epsilon*s_0), epsilon, k_m1/k_2, k_2/(k_1*s_0), s_0/K_m, e_0/s_0]])
+    >>> system_mm_red = max_scal1.translate(system_mm)
+    >>> system_mm_red = system_mm_red.diff_subs({sympy.sympify('c2'): sympy.sympify('1 / (sigma * (kappa + 1))'),
+    ...                                          sympy.sympify('c4'): sympy.sympify('epsilon * (1 + 1 / sigma)'),
+    ...                                          })
+    >>> system_mm_red.diff_subs({'c0': 'epsilon',
+    ...                          'c3': 'sigma',
+    ...                          'c1': 'kappa',
+    ...                          's': 'u', 'c': 'v'},
+    ...                         subs_constraints=True,
+    ...                         expand_after=True,
+    ...                         factor_after=True)
+    dt/dt = 1
+    dc/dt = -(sigma*u*v - sigma*u - u + v)/(sigma + 1)
+    ds/dt = epsilon*(kappa*sigma*u*v - kappa*sigma*u - kappa*u + kappa*v + sigma*u*v - sigma*u - u)/((kappa + 1)*(sigma + 1))
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    dc4/dt = 0
+    d1/dt = 0
+    dc3/dt = 0
+    dkappa/dt = 0
+    dsigma/dt = 0
+    depsilon/dt = 0
+    s(0) = 1
+    1/sigma == c2*kappa + c2
+    epsilon == c4/(1 + 1/sigma)
+
+
+Outer equations (24)
+
+    >>> # Scale t correctly to t/t_S = k_2 epsilon t
+    >>> max_scal1.multiplier_add_columns(2, 7, 1)
+    >>> max_scal1.multiplier_add_columns(2, -1, -1)
+    >>> max_scal1.multiplier_add_columns(2, 5, 2)
+    >>> max_scal1.invariants()
+    Matrix([[epsilon*k_2*t, s/s_0, c/(epsilon*s_0), epsilon, k_m1/k_2, k_2/(k_1*s_0), s_0/K_m, e_0/s_0]])
+    >>> system_mm_red = max_scal1.translate(system_mm)
+    >>> system_mm_red = system_mm_red.diff_subs({sympy.sympify('c2'): sympy.sympify('1 / (sigma * (kappa + 1))'),
+    ...                                          sympy.sympify('c4'): sympy.sympify('epsilon * (1 + 1 / sigma)'),
+    ...                                          })
+    >>> system_mm_red.diff_subs({'c0': 'epsilon',
+    ...                          'c3': 'sigma',
+    ...                          'c1': 'kappa',
+    ...                          's': 'u', 'c': 'v'},
+    ...                         subs_constraints=True,
+    ...                         expand_after=True,
+    ...                         factor_after=True)
+    dt/dt = 1
+    dc/dt = -(kappa + 1)*(sigma*u*v - sigma*u - u + v)/epsilon
+    ds/dt = kappa*sigma*u*v - kappa*sigma*u - kappa*u + kappa*v + sigma*u*v - sigma*u - u
+    dc0/dt = 0
+    dc1/dt = 0
+    dc2/dt = 0
+    dc4/dt = 0
+    d1/dt = 0
+    dc3/dt = 0
+    dkappa/dt = 0
+    dsigma/dt = 0
+    depsilon/dt = 0
+    s(0) = 1
+    1/sigma == c2*kappa + c2
+    epsilon == c4/(1 + 1/sigma)
