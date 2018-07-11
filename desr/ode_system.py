@@ -233,10 +233,10 @@ class ODESystem(object):
 
     def add_constraints(self, lhs, rhs):
         '''
-        Add constraints that
-        :param lhs:
-        :param rhs:
-        :return:
+        Add constraints that must be obeyed by the system.
+        Args:
+            lhs (sympy.Expr): The left hand side of the constraint.
+            rhs (sympy.Expr): The right hand side of the constraint.
 
         Todo:
             * Finish docstring and tests, here and for: finding scaling symmetries and also translation
@@ -265,7 +265,7 @@ class ODESystem(object):
         >>> system.add_constraints('c_2', 'c_0 + x')
         Traceback (most recent call last):
             ...
-        ValueError: Cannot add constraints on non-constant parameters. This would make an interesting project though...
+        ValueError: Cannot add constraints on non-constant parameters set([x]). This would make an interesting project though...
 
         >>> system.add_constraints('c_0', 0)
         Traceback (most recent call last):
@@ -279,13 +279,85 @@ class ODESystem(object):
         if (lhs == 0) or (rhs == 0):
             raise ValueError('Cannot express equality with 0.')
         variables = expressions_to_variables([lhs, rhs])
-        if variables.intersection(self.non_constant_variables):
-            raise ValueError('Cannot add constraints on non-constant parameters. ' +
+        nonconst_var = variables.intersection(self.non_constant_variables)
+        if nonconst_var:
+            raise ValueError('Cannot add constraints on non-constant parameters {}. '.format(nonconst_var) +
                              'This would make an interesting project though...')
         variables = sorted(variables.difference(set(self.variables)), key=str)
         self._variables = tuple(list(self._variables) + variables)
         self._derivatives = tuple(list(self._derivatives) + [None for _ in variables])
         self._constraints.append(sympy.Eq(lhs, rhs))
+
+    def diff_subs(self, to_sub, expand_before=False, expand_after=True, factor_after=False, subs_constraints=False):
+        '''
+        Make substitutions into the derivatives, returning a new system.
+        Args:
+            to_sub (dict): Dictionary of substitutions to make.
+            expand_before (bool): Expand the sympy expression for each derivative before substitution.
+            expand_after (bool): Expand the sympy expression for each derivative after substitution.
+            factor_after (bool): Factorise the sympy expression for each derivative after substitution.
+            subs_constraints (bool): Perform the substitutions into the initial constraints.
+        Returns:
+            ODESystem: System with substitutions carried out.
+
+        >>> eqns = ['dx/dt = c_0*x*y', 'dy/dt = c_1*(1-x)*(1-y)']
+        >>> system = ODESystem.from_equations(eqns)
+        >>> system.diff_subs({'1-x': 'z'}, expand_before=False, expand_after=False, factor_after=False)
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*z*(-y + 1)
+        dc_0/dt = 0
+        dc_1/dt = 0
+        >>> system.diff_subs({'1-x': 'z'}, expand_before=True, expand_after=False, factor_after=False)
+        dt/dt = 1
+        dx/dt = c_0*x*y
+        dy/dt = c_1*x*y - c_1*x - c_1*y + c_1
+        dc_0/dt = 0
+        dc_1/dt = 0
+
+        >>> system.diff_subs({'x': '1-z'}, expand_before=True, expand_after=True, factor_after=False)
+        dt/dt = 1
+        dx/dt = -c_0*y*z + c_0*y
+        dy/dt = -c_1*y*z + c_1*z
+        dc_0/dt = 0
+        dc_1/dt = 0
+
+        >>> system.add_constraints('c_0', 'c_1**2')
+        >>> system.diff_subs({'c_0': '1'}, subs_constraints=False)
+        dt/dt = 1
+        dx/dt = x*y
+        dy/dt = c_1*x*y - c_1*x - c_1*y + c_1
+        dc_0/dt = 0
+        dc_1/dt = 0
+        c_0 == c_1**2
+        >>> system.diff_subs({'c_0': '1'}, subs_constraints=True)
+        dt/dt = 1
+        dx/dt = x*y
+        dy/dt = c_1*x*y - c_1*x - c_1*y + c_1
+        dc_0/dt = 0
+        dc_1/dt = 0
+        1 == c_1**2
+        '''
+        to_sub = {sympy.sympify(k): sympy.sympify(v) for k, v in to_sub.items()}
+        new_derivs = self._derivatives
+        if expand_before:
+            new_derivs = (d.expand() if d is not None else None for d in new_derivs)
+        new_derivs = (d.subs(to_sub) if d is not None else None for d in new_derivs)
+        if expand_after:
+            new_derivs = (d.expand() if d is not None else None for d in new_derivs)
+        if factor_after:
+            new_derivs = (sympy.factor(d) if d is not None else None for d in new_derivs)
+
+        subs_system = ODESystem(self.variables, new_derivs,
+                                initial_conditions=self.initial_conditions,
+                                indep_var=self.indep_var)
+
+        for eqn in self.constraints:
+            if subs_constraints:
+                eqn = sympy.Eq(eqn.lhs.subs(to_sub), eqn.rhs.subs(to_sub))
+            subs_system.add_constraints(eqn.lhs, eqn.rhs)
+
+        return subs_system
 
     @classmethod
     def from_equations(cls, equations, indep_var=sympy.var('t'), initial_conditions=None):
