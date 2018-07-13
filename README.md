@@ -1,6 +1,8 @@
 # desr
 
-*desr* is a package used for Differental Equation Symmetry Reduction and is particularly useful for reducing the number of parameters in dynamical systems. It implements algorithms outlined by Evelyne Hubert and George Labahn <sup>[1](#myfootnote1)</sup>. The Masters dissertation [Differential Algebra and Applications](http://tanbur.github.io/desr/dissertation/differential_algebra_and_applications.pdf) that inspired this project places the algorithms into the theoretical framework of <em>differential algebraic geometry</em> and shows how to extend them to parameter reduction of arbitrary systems of partial differential equations, though this is not yet implemented.
+*desr* is a package used for Differental Equation Symmetry Reduction and is particularly useful for reducing the number of parameters in dynamical systems. It implements algorithms outlined by Evelyne Hubert and George Labahn <sup>[1](#myfootnote1)</sup>. See the full documentation on [readthedocs](https://desr.readthedocs.io/en/latest/).
+
+The Masters dissertation [Differential Algebra and Applications](http://tanbur.github.io/desr/dissertation/differential_algebra_and_applications.pdf) that this code accompanies places the algorithms into the theoretical framework of <em>differential algebraic geometry</em> and shows how to extend them to parameter reduction of arbitrary systems of partial differential equations, though this is not yet implemented.
 
 <a name="myfootnote1">1</a>: Hubert, E., & Labahn, G. (2013). Scaling Invariants and Symmetry Reduction of Dynamical Systems. Foundations of Computational Mathematics, 13(4), 479–516. http://doi.org/10.1007/s10208-013-9165-9
 
