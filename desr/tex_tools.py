@@ -97,16 +97,20 @@ def tex_to_sympy(tex):
     Returns:
         list
 
-    >>> lines = ['\\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\\\',
-    ... '\\frac{dS}{dt} &= - k_1 E S + k_{-1} C \\\\',
-    ... '\\frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\\\',
-    ... '\\frac{dP}{dt} &= k_2 C']
+    >>> lines = [r'\\frac{dE}{dt} &= - k_1 E S + k_{-1} C + k_2 C \\\\',
+    ... r'\\frac{dS}{dt} &= - k_1 E S + k_{-1} C \\\\',
+    ... r'\\frac{dC}{dt} &= k_1 E S - k_{-1} C - k_2 C \\\\',
+    ... r'\\frac{dP}{dt} &= k_2 C']
     >>> sym = tex_to_sympy('\\n'.join(lines))
     >>> for s in sym: print s
     Eq(Derivative(E, t), C*k_2 + C*k_m1 - E*S*k_1)
     Eq(Derivative(S, t), C*k_m1 - E*S*k_1)
     Eq(Derivative(C, t), -C*k_2 - C*k_m1 + E*S*k_1)
     Eq(Derivative(P, t), C*k_2)
+
+
+    >>> print tex_to_sympy('k_2 &= V_2d ( APCT - APCs ) + V_2dd APCs')
+    Eq(k_2, APCs*V_2dd + V_2d*(APCT - APCs))
     """
     # Parse each line individually
     split_tex = tex.split('\n')
@@ -114,7 +118,7 @@ def tex_to_sympy(tex):
         return map(tex_to_sympy, split_tex)
 
     # Remove alignment characters
-    tex = tex.strip('\s').replace('&', '').replace('\\\\', '')
+    tex = tex.strip().replace('&', '').replace('\\', '')
 
     # If equality, return a sympy.Eq
     sides = tex.split('=')
@@ -124,12 +128,12 @@ def tex_to_sympy(tex):
         raise ValueError('Too many = in {}.'.format(tex))
 
     # Turn \frac{d }{d } into sympy.Derivatives
-    diff_match = re.match('\s*\\frac\{d(.+)\}\{d(.+)\}', tex)
+    diff_match = re.match('\s*[\\f\ff]?rac\{d(.+)\}\{d(.+)\}', tex)
     if diff_match:
         return sympy.Derivative(*sympy.symbols(' '.join(diff_match.groups())))
 
-    # Turn \frac into ratios
-    tex = re.sub(r'\frac{(.*)}{(.*)}', '((\\1) / (\\2))', tex)
+    # Turn \frac into ratios. Consume the shortest amount possible
+    tex = re.sub('[\\f\ff]?rac{(.*?)}{(.*?)}', '((\\1) / (\\2))', tex)
     # Turn spaces between variables into *. Do this by matching anything that isn't an operation
     # Use a lookahead assertion to get overlapping instances.
     tex = re.sub('([^+\-*\s/(]+)\s+(?=[^+\-*\s/)]+)', '\\1 * ', tex)
